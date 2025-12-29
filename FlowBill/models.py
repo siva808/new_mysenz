@@ -255,3 +255,13 @@ class GRNItem(models.Model):
     def __str__(self):
         name = self.product.name if self.product else (self.medicine.name if self.medicine else "unknown")
         return f"{self.grn.grn_number} | {name} | {self.accepted_qty}/{self.rejected_qty}"
+
+
+
+class UOM(models.Model):
+    name= models.CharField(max_length=20)
+
+    def __str__(self):
+        return self.name
+    class Meta:
+        db_table= "uom"

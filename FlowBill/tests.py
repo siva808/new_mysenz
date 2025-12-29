@@ -54,6 +54,13 @@ def _po_fully_received(po: PurchaseOrder) -> bool:
             return False
     return True
 
+
+
+
+
+
+
+
 @transaction.atomic
 def create_grn_from_po(po_id: int, rows: list, request_id: str, actor: str = "system") -> GRN:
     """

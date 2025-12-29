@@ -1,22 +1,33 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.shortcuts import get_object_or_404
-from .models import *
-from .serializers import *
 from rest_framework.parsers import JSONParser
 from rest_framework.permissions import IsAdminUser
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status, permissions
-from MySenzApp.crud import DocumentManager
-import csv
+from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Prefetch
+from django.db.models import Prefetch ,F,Sum
+from django.utils import timezone
+from django.utils import timezone 
+
+from datetime import date
+from .models import *
+from .serializers import *
+from MySenzApp.models import *
+from MySenzApp.crud import DocumentManager
+import csv
 
 
+
+import pytz 
+IST = pytz.timezone("Asia/Kolkata")
+
+
+# vendor crud operation using to serializer
 
 class VendorAPIView(APIView):
     permission_classes = [IsAdminUser] 
@@ -58,7 +69,7 @@ class VendorAPIView(APIView):
         )
     
 
-
+#product crud operations 
     
 class ProductAPIView(APIView):
     permission_classes = [IsAdminUser]
@@ -165,8 +176,7 @@ class ProductAPIView(APIView):
  
 
 
-
-
+#bulk upload product function 
 
 class BulkUploadAPIView(APIView):
     permission_classes = [IsAdminUser]
@@ -322,9 +332,6 @@ def create_purchase_order(request):
             "uom": uom
         })
 
-    # Build response manually
-
-
     return JsonResponse({"success":True,"message":"Purchase Order created successfully"}, status=201)
 
 
@@ -376,7 +383,7 @@ def get_po_details(request):
             data.append({
                 "po_number": po.po_number,
                 "vendor": getattr(po.vendor, "name", po.vendor_id),
-                "created_at": po.order_date.strftime("%Y-%m-%d"),
+                "created_at": timezone.localtime(po.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
                 "status": po.status,
                 "category_name": category_name
             })
@@ -426,14 +433,14 @@ def get_po_details(request):
             data.append({
                 "po_number": po.po_number,
                 "vendor": getattr(po.vendor, "name", po.vendor_id),
-                "created_at": po.order_date.strftime("%Y-%m-%d"),
+                "created_at": timezone.localtime(po.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
                 "status": po.status,
                 "category_name": summary["category_name"],
               
             })
         return JsonResponse({"success": True, "purchase_orders": data}, status=200)
 
-    # Case 2: One PO with item-level details + category summary
+    #  One PO with item-level details + category summary
     try:
         po = (PurchaseOrder.objects.select_related("vendor").prefetch_related(Prefetch("items",queryset=PurchaseOrderItem.objects.select_related("product__category", "medicine__category"))).get(po_number=po_number))
 
@@ -495,7 +502,7 @@ def get_po_details(request):
     po_data = {
         "po_number": po.po_number,
         "vendor": getattr(po.vendor, "name", po.vendor_id),
-        "created_at": po.order_date.strftime("%Y-%m-%d"),
+        "created_at": timezone.localtime(po.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
         "status": po.status,
         "category_name": summary["category_name"],
         "items": items,
@@ -526,7 +533,6 @@ def po_update_status(request):
 
 
 
-from django.db import transaction
 
 @csrf_exempt
 @api_view(["POST"])
@@ -553,7 +559,7 @@ def create_indent(request):
     except Store.DoesNotExist:
         return JsonResponse({"success": False, "message": f"Store with id {store_id} does not exist"}, status=404)
 
-    # ✅ Validate items first
+    # Validate items first
     validated_items = []
     for item in items_data:
         prod_code = item.get("product_id")
@@ -576,7 +582,7 @@ def create_indent(request):
                 return JsonResponse({"success": False, "message": f"Product with product_id {prod_code} does not exist"}, status=400)
             validated_items.append(("product", prod_obj, qty, category_id))
 
-    # ✅ Create indent + items atomically
+    #Create indent + items atomically
     with transaction.atomic():
         indent = Indent.objects.create(store=store, status=status, suggested_vendors=suggested_vendors)
 
@@ -627,15 +633,6 @@ def stoke_management(request):
     return JsonResponse({"success": True, "message": "Product stock updated to "}, status=200)
 
 
-
-
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import api_view
-from rest_framework.parsers import JSONParser
-
-from .models import Indent, Vendor, Product, Medicine  # adjust imports to your app
-
 @csrf_exempt
 @api_view(["POST"])
 def get_indent_details(request):
@@ -644,147 +641,99 @@ def get_indent_details(request):
     status_filter = json_request.get("status")
     store_id = json_request.get("store_id")
 
+    # Base queryset
+    indents_qs = (
+        Indent.objects
+        .select_related("store")
+        .prefetch_related("items__product__category", "items__medicine__category")
+    )
 
-    # Filter by status
+    # Apply filters
     if status_filter:
-        indents = (
-            Indent.objects
-            .select_related("store")
-            .prefetch_related("items__product__category", "items__medicine__category")
-            .filter(status=status_filter)
-        )
+        indents_qs = indents_qs.filter(status=status_filter)
+    if store_id:
+        indents_qs = indents_qs.filter(store_id=store_id)
 
-        data = []
-        for indent in indents:
-            vendor_names = []
-            first_item = indent.items.first()
-            category_id, category_name = None, None
+    # specific indent_number
+    if indent_number:
+        try:
+            indent = indents_qs.get(indent_number=indent_number)
+        except Indent.DoesNotExist:
+            return JsonResponse(
+                {"success": False, "message": f"Indent with number {indent_number} does not exist"},
+                status=404,
+            )
 
-            if indent.suggested_vendors:
-                vendors = Vendor.objects.in_bulk(indent.suggested_vendors)
-                vendor_names = [{"id": v.id, "name": v.name} for v in vendors.values()]
+        # Resolve vendor names
+        vendor_names = []
+        if indent.suggested_vendors:
+            vendors = Vendor.objects.in_bulk(indent.suggested_vendors)
+            vendor_names = [{"id": v.id, "name": v.name} for v in vendors.values()]
 
-            if first_item:
-                if first_item.product and first_item.product.category:
-                    category_id = first_item.product.category_id
-                    category_name = first_item.product.category.name
-                elif first_item.medicine and first_item.medicine.category:
-                    category_id = first_item.medicine.category_id
-                    category_name = first_item.medicine.category.name
-
-            data.append({
-                "indent_number": indent.indent_number,
-                "store": getattr(indent.store, "name", indent.store_id),
-                "created_at": indent.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "status": indent.status,
-                "category_id": category_id,
+        items = []
+        category_id, category_name = None, None
+        for item in indent.items.all():
+            obj = item.product or item.medicine
+            if not obj:
+                continue
+            if hasattr(obj, "category") and obj.category:
+                category_id = obj.category_id
+                category_name = obj.category.name
+            items.append({
+                "id": obj.id,
+                "name": getattr(obj, "name", None),
+                "qty": item.quantity,
+                "uom": getattr(obj, "uom", None),
+                "brand_name": getattr(obj, "brand_name", None),
+                "molecule": getattr(obj, "molecule", None),
+                "type": "product" if item.product else "medicine",
                 "category_name": category_name,
-                "suggested_vendors": vendor_names,
             })
 
-        return JsonResponse({
-            "success": True,
-            "count": indents.count(),
-            "indents": data
-        }, status=200)
-
-    # List all indents if no indent_number
-    if not indent_number:
-        indents = (
-            Indent.objects
-            .select_related("store")
-            .prefetch_related("items__product__category", "items__medicine__category")
-            .order_by("-id")
-        )
-
-        data = []
-        for indent in indents:
-            vendor_names = []
-            first_item = indent.items.first()
-            category_id, category_name = None, None
-
-            if indent.suggested_vendors:
-                vendors = Vendor.objects.in_bulk(indent.suggested_vendors)
-                vendor_names = [{"id": v.id, "name": v.name} for v in vendors.values()]
-
-            if first_item:
-                if first_item.product and first_item.product.category:
-                    category_id = first_item.product.category_id
-                    category_name = first_item.product.category.name
-                elif first_item.medicine and first_item.medicine.category:
-                    category_id = first_item.medicine.category_id
-                    category_name = first_item.medicine.category.name
-
-            data.append({
-                "indent_number": indent.indent_number,
-                "store": getattr(indent.store, "name", indent.store_id),
-                "created_at": indent.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "status": indent.status,
-                "category_id": category_id,
-                "category_name": category_name,
-                "suggested_vendors": vendor_names,
-            })
-
-        return JsonResponse({"success": True, "indents": data}, status=200)
-
-    # One indent with item-level details
-    try:
-        indent = (
-            Indent.objects
-            .select_related("store")
-            .prefetch_related("items__product__category", "items__medicine__category")
-            .get(indent_number=indent_number)
-        )
-    except Indent.DoesNotExist:
-        return JsonResponse(
-            {"success": False, "message": f"Indent with number {indent_number} does not exist"},
-        )
-
-    # Resolve vendor names
-    vendor_names = []
-    if indent.suggested_vendors:
-        vendors = Vendor.objects.in_bulk(indent.suggested_vendors)
-        vendor_names = [v.name for v in vendors.values()]
-
-    items = []
-    category_id, category_name = None, None  # <-- initialize before loop
-
-    for item in indent.items.all():
-        obj = item.product or item.medicine
-        if not obj:
-            continue
-
-        if hasattr(obj, "category") and obj.category:
-            category_id = obj.category_id
-            category_name = obj.category.name
-
-        item_data = {
-            "id": obj.id,
-            "product_id": getattr(obj, "product_id", None),
-            "name": getattr(obj, "name", None),
-            "qty": item.quantity,
-            "uom": getattr(obj, "uom", None),
-            "brand_name": getattr(obj, "brand_name", None),
-            "molecule": getattr(obj, "molecule", None),
-            "type": "product" if item.product else "medicine",
+        indent_data = {
+            "indent_number": indent.indent_number,
+            "store_id": indent.store_id,
+            "created_at": timezone.localtime(indent.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
+            "status": indent.status,
+            "suggested_vendors": vendor_names,
+            "category_id": category_id,
             "category_name": category_name,
-            "created_at": indent.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "items": items,
         }
-        items.append(item_data)
+        return JsonResponse({"success": True, "indent": indent_data}, status=200)
 
-    indent_data = {
-        "indent_number": indent.indent_number,
-        "store": getattr(indent.store, "name", indent.store_id),
-        "created_at": indent.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-        "status": indent.status,
-        "suggested_vendors": vendor_names,
-        "category_id": category_id,
-        "category_name": category_name,
-        "items": items,
-    }
+    # list indents (with filters applied)
+    indents_qs = indents_qs.order_by("-id")
+    data = []
+    for indent in indents_qs:
+        vendor_names = []
+        first_item = indent.items.first()
+        category_id, category_name = None, None
 
-    return JsonResponse({"success": True, "indent": indent_data}, status=200)
+        if indent.suggested_vendors:
+            vendors = Vendor.objects.in_bulk(indent.suggested_vendors)
+            vendor_names = [{"id": v.id, "name": v.name} for v in vendors.values()]
 
+        if first_item:
+            obj = first_item.product or first_item.medicine
+            if obj and obj.category:
+                category_id = obj.category_id
+                category_name = obj.category.name
+
+
+        data.append({
+            "indent_number": indent.indent_number,
+            "store_id": indent.store_id,
+            "store_name": indent.store.store_name if indent.store else None,
+            "created_at": timezone.localtime(indent.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"), 
+            "updated_at": timezone.localtime(indent.updated_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
+            "status": indent.status,
+            "category_id": category_id,
+            "category_name": category_name,
+            "suggested_vendors": vendor_names,
+        })
+
+    return JsonResponse({"success": True, "count": indents_qs.count(), "indents": data}, status=200)
 
 
 
@@ -798,16 +747,15 @@ def update_indent(request):
     items_data = json_request.get("items", [])
     suggested_vendors = json_request.get("suggested_vendors", [])
 
-    if not indent_number or not items_data:
-        return JsonResponse({"success": False, "message": "indent_id and items are required"})
+  
 
-    # Fetch indent
+
     try:
         indent = Indent.objects.get(indent_number=indent_number)
     except Indent.DoesNotExist:
         return JsonResponse({"success": False, "message": f"Indent {indent_number} does not exist"})
 
-    #  Update indent status
+    
     if status:
         indent.status = status
     if suggested_vendors:
@@ -827,7 +775,7 @@ def update_indent(request):
                 return JsonResponse({"success": False, "message": "Each item must include product_id and valid quantity"})
 
             if category_id == 9:
-                # Medicine
+
                 try:
                     med_obj = Medicine.objects.get(product_id=prod_code)
                 except Medicine.DoesNotExist:
@@ -850,7 +798,7 @@ def update_indent(request):
                     "action": action
                 })
             else:
-                # Product
+              
                 try:
                     prod_obj = Product.objects.get(product_id=prod_code)
                 except Product.DoesNotExist:
@@ -877,3 +825,152 @@ def update_indent(request):
         "success": True,
         "message": f"Indent {indent_number} updated successfully",
     }, status=200)
+
+
+@csrf_exempt
+@api_view(["GET"])
+def UOMdropdown(request):
+    data = list(UOM.objects.values_list("name", flat=True))
+    return Response({"success": True, "data": data})
+
+
+
+
+@transaction.atomic
+def create_grn_from_po(po_id: int, rows: list, request_id: str, actor: str = "system") -> GRN:
+    
+    existing = GRN.objects.filter(request_id=request_id).first()
+    if existing:
+        return existing
+
+    po = PurchaseOrder.objects.select_for_update().prefetch_related("items").get(id=po_id)
+    if po.status == "cancelled":
+        raise GRNError("PO is cancelled")
+
+    # Create GRN record
+    grn_number = next_id(prefix=f"GRN-WH-{po.id}-")
+    grn = GRN.objects.create(
+        grn_number=grn_number,
+        grn_type="warehouse",
+        purchase_order=po,
+        status="Partial",
+        request_id=request_id
+    )
+
+    # Map PO items for validation
+    poi_map = {poi.id: poi for poi in po.items.all()}
+
+    grn_items = []
+    # We'll update product/medicine stock inline (select_for_update on rows)
+    for r in rows:
+        poi_id = int(r.get("purchase_order_item_id") or 0)
+        if poi_id not in poi_map:
+            raise GRNError(f"PO item {poi_id} not found on PO {po_id}")
+
+        poi = poi_map[poi_id]
+
+        # Determine whether this row is product or medicine and validate
+        product_id = r.get("product_id")
+        medicine_id = r.get("medicine_id")
+        if poi.product_id and not product_id:
+            raise GRNError(f"PO item {poi_id} expects product_id")
+        if poi.medicine_id and not medicine_id:
+            raise GRNError(f"PO item {poi_id} expects medicine_id")
+
+        accepted_qty = int(r.get("accepted_qty") or 0)
+        rejected_qty = int(r.get("rejected_qty") or 0)
+        batch_no = (r.get("batch_no") or "").strip()
+        expiry_date = r.get("expiry_date") or None
+        uom = r.get("uom") or poi.uom
+        reason = r.get("reason") or ""
+
+        # Expiry policy: if expiry_date provided and expired, treat accepted as 0 and move to rejected
+        if expiry_date and _is_expired(expiry_date):
+            if accepted_qty > 0:
+                rejected_qty += accepted_qty
+                accepted_qty = 0
+
+        gi = GRNItem(
+            grn=grn,
+            product_id=product_id if product_id else None,
+            medicine_id=medicine_id if medicine_id else None,
+            batch_no=batch_no,
+            expiry_date=expiry_date,
+            accepted_qty=accepted_qty,
+            rejected_qty=rejected_qty,
+            uom=uom,
+            reason=reason
+        )
+        grn_items.append(gi)
+
+        # Update stock on Product or Medicine
+        if accepted_qty > 0:
+            if product_id:
+                Product.objects.filter(id=product_id).update(stock=F('stock') + accepted_qty)
+            elif medicine_id:
+                Medicine.objects.filter(id=medicine_id).update(stock=F('stock') + accepted_qty)
+
+    # Bulk create GRN items
+    GRNItem.objects.bulk_create(grn_items)
+
+    # Update PO status if fully received
+    if _po_fully_received(po):
+        po.status = "received"
+        po.save(update_fields=["status"])
+        grn.status = "Full"
+    else:
+        grn.status = "Partial"
+
+    grn.confirmed_at = timezone.now()
+    grn.save(update_fields=["status", "confirmed_at"])
+    return grn
+
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_warehouse_grn(request):
+    data = request.data
+    po_id = data.get("po_id")
+    request_id = data.get("request_id")
+    rows = data.get("rows", [])
+
+    if not po_id or not request_id or not isinstance(rows, list):
+        return Response({"detail": "po_id, request_id and rows[] are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Basic row validation
+    parsed = []
+    for i, r in enumerate(rows, start=1):
+        poi = _parse_int(r.get("purchase_order_item_id"))
+        product_id = r.get("product_id")
+        medicine_id = r.get("medicine_id")
+        uom = r.get("uom") or ""
+        accepted_qty = _parse_int(r.get("accepted_qty"))
+        rejected_qty = _parse_int(r.get("rejected_qty"))
+        batch_no = (r.get("batch_no") or "").strip()
+        expiry_date = _parse_date(r.get("expiry_date"))
+        reason = r.get("reason") or ""
+
+        if not poi:
+            return Response({"detail": f"Row {i}: purchase_order_item_id required"}, status=400)
+        if not (product_id or medicine_id):
+            return Response({"detail": f"Row {i}: product_id or medicine_id required"}, status=400)
+
+        parsed.append({
+            "purchase_order_item_id": poi,
+            "product_id": product_id,
+            "medicine_id": medicine_id,
+            "uom": uom,
+            "accepted_qty": accepted_qty,
+            "rejected_qty": rejected_qty,
+            "batch_no": batch_no,
+            "expiry_date": expiry_date,
+            "reason": reason
+        })
+
+    try:
+        grn = create_grn_from_po(po_id=int(po_id), rows=parsed, request_id=str(request_id), actor=request.user.username)
+    except GRNError as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({"grn_number": grn.grn_number, "grn_id": grn.id, "status": grn.status}, status=status.HTTP_201_CREATED)
