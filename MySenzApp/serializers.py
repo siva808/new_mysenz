@@ -45,6 +45,15 @@ class StoreManagerDetailSerializer(serializers.ModelSerializer):
         fields = ["id", "manager_name", "manager_contact", "manager_email", "store","is_active"]
 
 
+class SubcategorySerilalizer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source="category.name", read_only=True)
+    
+    class Meta:
+        model= SubCategory
+        fields =["id","category","category_name","name","is_active"]
+
+
+
 class ServiceCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category

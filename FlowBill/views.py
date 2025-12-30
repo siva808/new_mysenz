@@ -79,6 +79,7 @@ class ProductAPIView(APIView):
         queryset = Product.objects.all()
 
         # Extract filters from query params
+        
         category_id = request.query_params.get("category_id")
         brand_name = request.query_params.get("brand_name")
         molecule = request.query_params.get("molecule")
@@ -107,7 +108,7 @@ class ProductAPIView(APIView):
         return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
 
     def post(self, request):
-        category_id = request.data.get("category")
+        category_id = request.data.get("category_id")
 
         if category_id == 9:
             medicine_serializer = MedicineSerializer(data=request.data)

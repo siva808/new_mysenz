@@ -249,8 +249,63 @@ def paymentdropdown(request):
 
 
 
+class SubcategoryAPIView(APIView):
+
+    def get(self, request):
+        category_id = request.query_params.get("category_id")
+
+        try:
+            if category_id:
+                subcategories = SubCategory.objects.filter(category_id=category_id).order_by("id")
+                serializer = SubcategorySerilalizer(subcategories, many=True)
+                return Response({"success": True,"message": "Subcategories retrieved successfully", "data": serializer.data})
+
+            
+            subcategories = SubCategory.objects.all().order_by("id")
+            serializer = SubcategorySerilalizer(subcategories, many=True)
+            return Response({
+                "success": True,
+                "message": "All subcategories retrieved successfully",
+                "data": serializer.data
+            })
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": f"Error retrieving subcategories: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+    def post(self, request):
+        serializer = SubcategorySerilalizer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "success": True,
+                "message": "SubCategory created successfully",
+            })
+        return Response({
+            "success": False,
+            "message": "Validation failed",
+            "errors": serializer.errors
+        })
+    
+    def put(self, request): 
+        subcategory_id = request.data.get("id") 
+        name = request.data.get("name") 
+        is_active = request.data.get("is_active") 
+        try: 
+            subcategory = get_object_or_404(SubCategory, pk=subcategory_id) 
+            if not subcategory_id:
+                return Response({ "success": False,"message": "id was required"})
+            if name: 
+                subcategory.name = name 
+            if is_active is not None: 
+                subcategory.is_active = is_active 
+            subcategory.save() 
+            serializer = SubcategorySerilalizer(subcategory) 
+            return Response({ "success": True, "message": "SubCategory updated successfully", "data": serializer.data }) 
+        except Exception as e: return Response({ "success": False, "message": f"Error updating SubCategory: {str(e)}" }, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
 
 # class AdminNotificationLogListView(generics.ListAPIView):
 #     serializer_class = NotificationLogSerializer

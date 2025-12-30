@@ -12,8 +12,25 @@ class Vendor(models.Model):
     address = models.TextField()
     mobile = models.CharField(max_length=15)
     email = models.EmailField()
+
     gst = models.CharField(max_length=15)
     categories = ArrayField(models.CharField(max_length=50), default=list, blank=True)
+
+    # sub_categories = ArrayField(models.CharField(max_length=50), default=list,blank=True)
+
+    #banke details 
+
+    # bank_name = models.CharField(max_length=100) 
+    # branch_name = models.CharField(max_length=100, blank=True, null=True) 
+    # account_holder_name = models.CharField(max_length=100) 
+    # account_number = models.CharField(max_length=30) 
+    # ifsc_code = models.CharField(max_length=11) 
+    # swift_code = models.CharField(max_length=15, blank=True, null=True) 
+    # upi_id = models.CharField(max_length=50, blank=True, null=True) 
+    # pan_number = models.CharField(max_length=10, blank=True, null=True) 
+    # bank_address = models.TextField(blank=True, null=True)
+
+    #payment method
     payment = models.CharField(max_length=50,default="CREDIT")
     credit_days = models.PositiveIntegerField(default=0)
 
@@ -35,7 +52,7 @@ class Vendor(models.Model):
     class Meta:
         db_table = "vendor"
     
-#vendor_id,name,address,mobile,email,gst,categories,payment,credit_days,is_active
+
 
 class Product(models.Model):
 
@@ -81,7 +98,7 @@ class Product(models.Model):
         db_table = "product"
 
     
- #product_id,name,description,brand_name,molecule,uom,shape,material,color,size,stock,is_active,category
+
 
 class Medicine(models.Model):
     
@@ -170,6 +187,7 @@ class Indent(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="indents") 
     status = models.CharField( max_length=150)
     suggested_vendors = ArrayField(models.IntegerField(), default=list, blank=True)
+    # remarkers = models.CharField(max_length=150)
 
     #coomen fields
     is_active = models.BooleanField(default=True)
@@ -199,6 +217,7 @@ class IndentItem(models.Model):
         return f"{self.product.name} x {self.quantity}" 
     class Meta: 
         db_table = "indent_item"
+
 class IndentStatus(models.Model):
     status = models.CharField(max_length=50)
 
@@ -215,7 +234,9 @@ class GRN(models.Model):
 
     dispatch_id = models.IntegerField(null=True, blank=True) 
     request_id=models.CharField(max_length=64,unique=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     confirmed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -229,18 +250,26 @@ class GRN(models.Model):
 
 
 class GRNItem(models.Model):
+
     grn = models.ForeignKey(GRN, on_delete=models.CASCADE, related_name="items")
 
     product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL)
     medicine = models.ForeignKey(Medicine, null=True, blank=True, on_delete=models.SET_NULL)
 
     batch_no = models.CharField(max_length=50)
+    manufacturing_date= models.DateField(null=True,blank=True)
     expiry_date = models.DateField(null=True, blank=True)
 
+    #subcategory 
     accepted_qty = models.IntegerField()
-    rejected_qty = models.IntegerField(default=0)
+    # received_qty =models.IntegerField()
+    # damaged_qty = models.IntegerField()
+    # expired_qty = models.IntegerField()
 
+    rejected_qty = models.IntegerField(default=0)
+    # finala_ptr = models.IntegerField()
     uom= models.CharField(max_length=20)
+    # mrp= models.IntegerField()
     reason = models.CharField(max_length=50,blank=True)
 
     creted_at = models.DateTimeField(auto_now_add=True)
@@ -265,3 +294,11 @@ class UOM(models.Model):
         return self.name
     class Meta:
         db_table= "uom"
+
+
+#class subcategory()
+# category based to created fk
+#  discount percentage
+# verify to discount verfication discount 
+#mrp to 20 from 70 
+

@@ -1,1 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+env/
+venv/
+
+# OS
+.DS_Store
+
+# Chrome / installers
 *.deb
+*.rpm

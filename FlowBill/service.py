@@ -46,24 +46,9 @@ def _po_fully_received(po: PurchaseOrder) -> bool:
 
 
 @transaction.atomic
-def create_grn_from_po(po_id: int, rows: list, request_id: str, actor: str = "system") -> GRN:
-    """
-    Create a warehouse GRN from a PO.
 
-    rows: [
-      {
-        "purchase_order_item_id": 123,
-        "product_id": 5,            # OR "medicine_id": 7
-        "uom": "Nos",
-        "accepted_qty": 18,
-        "rejected_qty": 2,
-        "batch_no": "B123",
-        "expiry_date": "2026-06-30",
-        "reason": "short"
-      }, ...
-    ]
-    """
-    # Idempotency: return existing GRN if request_id already processed
+def create_grn_from_po(po_id: int, rows: list, request_id: str, actor: str = "system") -> GRN:
+    
     existing = GRN.objects.filter(request_id=request_id).first()
     if existing:
         return existing
@@ -72,7 +57,6 @@ def create_grn_from_po(po_id: int, rows: list, request_id: str, actor: str = "sy
     if po.status == "cancelled":
         raise GRNError("PO is cancelled")
 
-    # Create GRN record
     grn_number = next_id(prefix=f"GRN-WH-{po.id}-")
     grn = GRN.objects.create(
         grn_number=grn_number,
@@ -83,10 +67,13 @@ def create_grn_from_po(po_id: int, rows: list, request_id: str, actor: str = "sy
     )
 
     # Map PO items for validation
+
     poi_map = {poi.id: poi for poi in po.items.all()}
 
     grn_items = []
+
     # We'll update product/medicine stock inline (select_for_update on rows)
+
     for r in rows:
         poi_id = int(r.get("purchase_order_item_id") or 0)
         if poi_id not in poi_map:
@@ -95,6 +82,8 @@ def create_grn_from_po(po_id: int, rows: list, request_id: str, actor: str = "sy
         poi = poi_map[poi_id]
 
         # Determine whether this row is product or medicine and validate
+
+
         product_id = r.get("product_id")
         medicine_id = r.get("medicine_id")
         if poi.product_id and not product_id:
@@ -152,23 +141,7 @@ def create_grn_from_po(po_id: int, rows: list, request_id: str, actor: str = "sy
 
 @transaction.atomic
 def create_branch_grn_from_dispatch(dispatch_id: int, rows: list, request_id: str, actor: str = "system") -> GRN:
-    """
-    Create a branch/store GRN from a dispatch.
-
-    rows: [
-      {
-        "item_id": 5,
-        "product_id": 5,            # OR "medicine_id": 7
-        "uom": "Nos",
-        "batch_no": "B123",
-        "expiry_date": "2026-06-30",
-        "received_qty": 18,
-        "missing_qty": 2,
-        "damaged_qty": 0,
-        "expired_qty": 0
-      }, ...
-    ]
-    """
+   
     # Idempotency
     existing = GRN.objects.filter(request_id=request_id).first()
     if existing:

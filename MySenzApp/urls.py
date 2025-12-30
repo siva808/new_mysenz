@@ -23,6 +23,7 @@ urlpatterns = [
     path("admin/manager-service/", ManagerServiceAPIView.as_view()),
     path("admin/manager-booking-update/",update_manager_booking,name="manager_booking_update"),
     path("admin/manager-passcode-verify/",passcode_verify,name="verify_manager_passcode"),
+    path("admin/subcategory/",SubcategoryAPIView.as_view(),name="SubcategoryAPIView"),
     #path("admin/manager-update-service/",update_manager_services,name="manager_update_services"),
     
     path("admin/manager-service-update/", update_manager_services,),
