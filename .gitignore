@@ -14,3 +14,7 @@ venv/
 # Installers
 *.deb
 *.rpm
+
+# Django migrations (ignore all except __init__.py)
+**/migrations/*
+!**/migrations/__init__.py
