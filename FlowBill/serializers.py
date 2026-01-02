@@ -18,17 +18,9 @@ class ProductSerializer(serializers.ModelSerializer):
         read_only_fields = ["product_id"]
 
 
-class MedicineSerializer(serializers.ModelSerializer):
-    
-    class Meta:
-        model = Medicine
-        fields = "__all__"
-        read_only_fields = ["category_id"]
 
 
 
-
-    
 class IndentItemSerializer(serializers.ModelSerializer): 
 
     product_name = serializers.CharField(source="product.name", read_only=True) 
@@ -36,6 +28,7 @@ class IndentItemSerializer(serializers.ModelSerializer):
     class Meta: 
         model = IndentItem 
         fields = ["id", "product", "product_name", "quantity"]
+
 
 
 

@@ -71,11 +71,12 @@ class Store(models.Model):
     store_name = models.CharField(max_length=150)
     store_contact = models.CharField(max_length=20)
     store_address = models.TextField()
-    # gst = models.CharField(max_length=15)
+    gst = models.CharField(max_length=15,unique=True)
+    dl = models.CharField(max_length=12, unique=True) 
 
-    # gst_certificate = models.ImageField(upload_to="store/gst_certificates/", null=True, blank=True) 
-    # dl_image = models.ImageField(upload_to="store/drug_license/", null=True, blank=True)
-    # FFSI_image = models.ImageField(upload_to="store/drug_license/", null=True, blank=True)
+    gst_certificate = models.ImageField(upload_to="store/gst_certificates/", null=True, blank=True) 
+    dl_image = models.ImageField(upload_to="store/drug_license/", null=True, blank=True)
+    FFSI_image = models.ImageField(upload_to="store/drug_license/", null=True, blank=True)
 
 
 
@@ -109,7 +110,7 @@ class SubCategory(models.Model):
 
 class Service(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    subCategory = models.ForeignKey(SubCategory,on_delete=models.CASCADE)
+    subcategory = models.ForeignKey(SubCategory,on_delete=models.CASCADE)
     name = models.CharField(max_length=255,unique=True)
     description = models.TextField(blank=True)
     price = models.IntegerField()

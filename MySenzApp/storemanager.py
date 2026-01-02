@@ -12,6 +12,7 @@ from django.db import transaction
 from .crud import *
 from rest_framework.parsers import JSONParser
 from django.db.models import Count
+import json 
 
 
 @api_view(["GET"])
@@ -64,24 +65,40 @@ class CategoryListView(generics.ListAPIView):
         
 
     
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_store_manager(request):
-    serializer = StoreConfigSerializer(data=request.data.get("details"))
-    if not serializer.is_valid():
-        return Response({ "success": False,"message": "Validation failed","errors": serializer.errors})
-    data = serializer.validated_data
     try:
+        details_raw = request.data.get("details")
+        details = json.loads(details_raw) if isinstance(details_raw, str) else details_raw
+
+        serializer = StoreConfigSerializer(data=details)
+        if not serializer.is_valid():
+            return Response({
+                "success": False,
+                "message": "Validation failed",
+                "errors": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+
         store = Store.objects.create(
             store_name=data["storeName"],
             store_contact=data["storeContact"],
-            store_address=data["storeAddress"]
+            store_address=data["storeAddress"],
+            gst=data.get("gst"),
+            gst_certificate=request.FILES.get("gstCertificate"),  # ✅ handle file uploads
+            dl_image=request.FILES.get("dlImage"),
+            FFSI_image=request.FILES.get("ffsiImage")
         )
+
         manager_user = AdminUser.objects.create_user(
             email=data["managerEmail"],
             password=data["managerPassword"],
             role="manager"
         )
+
         store_manager = StoreManager.objects.create(
             store=store,
             user=manager_user,
@@ -89,14 +106,20 @@ def create_store_manager(request):
             manager_contact=data["managerContact"]
         )
 
-        return Response({"succes":True,"message": "StoreManager created successfully","store": StoreSerializer(store).data,
+        return Response({
+            "success": True,
+            "message": "StoreManager created successfully",
+            "store": StoreSerializer(store).data,
             "manager": StoreManagerSerializer(store_manager).data
-        })
+        }, status=status.HTTP_201_CREATED)
 
     except Exception as e:
-        return Response({"succes": False,"message": "Unexpected error occurred",
+        return Response({
+            "success": False,
+            "message": "Unexpected error occurred",
             "details": str(e)
-        }) 
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         
 class StoreManagerDetailView(APIView):
     authentication_classes = [JWTAuthentication]
@@ -239,9 +262,9 @@ class ServiceAPIView(APIView):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request):
-        service_id = request.query_params.get("id")
+        service_id = request.data.get("id")
         if not service_id:
-            return Response({"success": False,"message": "id query parameter required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"success": False,"message": "id body parameter required"}, status=status.HTTP_400_BAD_REQUEST)
 
         service = get_object_or_404(Service, pk=service_id)
         serializer = ServiceSerializer(service, data=request.data, partial=True)
@@ -251,7 +274,7 @@ class ServiceAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
         return Response({"success": False,"message": "Validation failed","errors": serializer.errors
-    }, status=status.HTTP_400_BAD_REQUEST)
+    }, status=status.HTTP_400_BAD_REQUEST)  
 
     def delete(self, request):
         category_name = request.query_params.get("name")

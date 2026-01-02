@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField, JSONField
 import uuid
-from MySenzApp.models import Category,Store
+from MySenzApp.models import Category,Store,SubCategory
 
 
 
@@ -14,21 +14,20 @@ class Vendor(models.Model):
     email = models.EmailField()
 
     gst = models.CharField(max_length=15)
-    categories = ArrayField(models.CharField(max_length=50), default=list, blank=True)
-
-    # sub_categories = ArrayField(models.CharField(max_length=50), default=list,blank=True)
+    category = models.ForeignKey(Category,on_delete=models.CASCADE)
+    sub_categories = ArrayField(models.CharField(max_length=50), default=list, blank=True)
 
     #banke details 
 
-    # bank_name = models.CharField(max_length=100) 
-    # branch_name = models.CharField(max_length=100, blank=True, null=True) 
-    # account_holder_name = models.CharField(max_length=100) 
-    # account_number = models.CharField(max_length=30) 
-    # ifsc_code = models.CharField(max_length=11) 
-    # swift_code = models.CharField(max_length=15, blank=True, null=True) 
-    # upi_id = models.CharField(max_length=50, blank=True, null=True) 
-    # pan_number = models.CharField(max_length=10, blank=True, null=True) 
-    # bank_address = models.TextField(blank=True, null=True)
+    bank_name = models.CharField(max_length=100) 
+    branch_name = models.CharField(max_length=100, blank=True, null=True) 
+    account_holder_name = models.CharField(max_length=100) 
+    account_number = models.CharField(max_length=30) 
+    ifsc_code = models.CharField(max_length=11) 
+    swift_code = models.CharField(max_length=15, blank=True, null=True) 
+    upi_id = models.CharField(max_length=50, blank=True, null=True) 
+    pan_number = models.CharField(max_length=10, blank=True, null=True) 
+    bank_address = models.TextField(blank=True, null=True)
 
     #payment method
     payment = models.CharField(max_length=50,default="CREDIT")
@@ -55,12 +54,15 @@ class Vendor(models.Model):
 
 
 class Product(models.Model):
-
+    sub_category = models.ForeignKey(SubCategory, on_delete=models.CASCADE, related_name="products")
     product_id = models.CharField(max_length=20, unique=True, blank=True)
+
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1) 
+    stock = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
 
     # Medicine-specific fields 
     brand_name = models.CharField(max_length=100, blank=True, null=True) 
@@ -75,11 +77,9 @@ class Product(models.Model):
 
 
     #coomon fields
-
-    stock = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
+    
 
     def save(self, *args, **kwargs):
 
@@ -100,41 +100,9 @@ class Product(models.Model):
     
 
 
-class Medicine(models.Model):
-    
-    product_id = models.CharField(max_length=20, unique=True, blank=True)
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
-    quantity = models.PositiveIntegerField(default=1) 
-    brand_name = models.CharField(max_length=100, blank=True, null=True) 
-    molecule = models.CharField(max_length=100, blank=True, null=True) 
-    uom = models.CharField(max_length=20, blank=True, null=True) # strip, box, tablet 
-    stock = models.PositiveIntegerField(default=0)
-
-    #common fields
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
-
-    def save(self, *args, **kwargs):
-
-        if not self.id:  
-            super().save(*args, **kwargs)
-        if not self.product_id:
-            self.product_id = f"PRD-WH-{self.id:06d}"
-            super().save(update_fields=["product_id"])
-        else:
-            super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.name
-    
-    class Meta:
-        db_table = "medicine"
-
 
 class PurchaseOrder(models.Model):
+
     po_number = models.CharField(max_length=20, unique=True, blank=True)
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
     order_date = models.DateField(auto_now_add=True)
@@ -165,7 +133,6 @@ class PurchaseOrder(models.Model):
 class PurchaseOrderItem(models.Model):
     purchase_order = models.ForeignKey(PurchaseOrder, related_name="items", on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
-    medicine = models.ForeignKey(Medicine, on_delete=models.CASCADE, null=True, blank=True)
 
     qty = models.PositiveIntegerField()
     uom = models.CharField(max_length=20)  # Nos, ml, strip, etc.
@@ -175,8 +142,7 @@ class PurchaseOrderItem(models.Model):
     def __str__(self):
         if self.product:
             return f"{self.product.name} x {self.qty} {self.uom}"
-        elif self.medicine:
-            return f"{self.medicine.name} x {self.qty} {self.uom}"
+        
         return f"Item {self.id}"
 
 
@@ -187,7 +153,7 @@ class Indent(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="indents") 
     status = models.CharField( max_length=150)
     suggested_vendors = ArrayField(models.IntegerField(), default=list, blank=True)
-    # remarkers = models.CharField(max_length=150)
+    remarkers = models.CharField(max_length=150)
 
     #coomen fields
     is_active = models.BooleanField(default=True)
@@ -210,11 +176,12 @@ class IndentItem(models.Model):
     
     indent = models.ForeignKey(Indent, related_name="items", on_delete=models.CASCADE) 
     product = models.ForeignKey(Product, on_delete=models.CASCADE , null=True, blank=True) 
-    medicine = models.ForeignKey(Medicine, on_delete=models.CASCADE, null=True, blank=True)
     quantity = models.PositiveIntegerField() 
 
-    def __str__(self): 
-        return f"{self.product.name} x {self.quantity}" 
+    def __str__(self):
+
+        return f"{self.product.name} x {self.quantity}"
+     
     class Meta: 
         db_table = "indent_item"
 
@@ -254,7 +221,6 @@ class GRNItem(models.Model):
     grn = models.ForeignKey(GRN, on_delete=models.CASCADE, related_name="items")
 
     product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL)
-    medicine = models.ForeignKey(Medicine, null=True, blank=True, on_delete=models.SET_NULL)
 
     batch_no = models.CharField(max_length=50)
     manufacturing_date= models.DateField(null=True,blank=True)
@@ -262,14 +228,14 @@ class GRNItem(models.Model):
 
     #subcategory 
     accepted_qty = models.IntegerField()
-    # received_qty =models.IntegerField()
-    # damaged_qty = models.IntegerField()
-    # expired_qty = models.IntegerField()
+    received_qty =models.IntegerField()
+    damaged_qty = models.IntegerField()
+    expired_qty = models.IntegerField()
 
     rejected_qty = models.IntegerField(default=0)
-    # finala_ptr = models.IntegerField()
+    finala_ptr = models.IntegerField()
     uom= models.CharField(max_length=20)
-    # mrp= models.IntegerField()
+    mrp= models.IntegerField()
     reason = models.CharField(max_length=50,blank=True)
 
     creted_at = models.DateTimeField(auto_now_add=True)
@@ -278,11 +244,10 @@ class GRNItem(models.Model):
         db_table="grn_item"
         indexes = [
             models.Index(fields=["product","batch_no"]),
-            models.Index(fields=["medicine","batch_no"]),
         ]
 
     def __str__(self):
-        name = self.product.name if self.product else (self.medicine.name if self.medicine else "unknown")
+        name = self.product.name if self.product else "unknown"
         return f"{self.grn.grn_number} | {name} | {self.accepted_qty}/{self.rejected_qty}"
 
 

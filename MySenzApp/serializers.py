@@ -64,23 +64,27 @@ class ServiceDetailsSerializer(serializers.ModelSerializer):
     category = ServiceCategorySerializer(read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), write_only=True)
+    subcategory = SubcategorySerilalizer(read_only=True) 
+    subcategory_id = serializers.PrimaryKeyRelatedField( queryset=SubCategory.objects.all(), write_only=True)
 
     class Meta:
         model = Service
-        fields = ["id","name","price","description","is_active","category","category_id"]
+        fields = ["id","name","price","description","is_active","category","category_id","subcategory", "subcategory_id"]
 
 
 class ServiceCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
-        fields = ["id","name", "description", "price", "category"]
+        fields = ["id","name", "description", "price", "category","subcategory"]
 
 
 class ServiceSerializer(serializers.ModelSerializer):
+
     class Meta:
+        
         model = Service
         fields = ["id","name", "description","price","category","show_in_ecom",
-                  "home_care_enabled","instore_enabled","is_active"]
+                  "home_care_enabled","instore_enabled","is_active","subcategory"]
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     class Meta:
@@ -99,12 +103,13 @@ class CustomerSerializer(serializers.ModelSerializer):
 class StoreManagerserviceSerializer(serializers.ModelSerializer):
     store_name = serializers.CharField(source="store.name", read_only=True)
     category_name = serializers.CharField(source="category.name", read_only=True)
+    subcategory_name = serializers.CharField(source="subcategory.name", read_only=True)
     service_name = serializers.CharField(source="service.name", read_only=True)
     user_email = serializers.EmailField(source="user.email", read_only=True)
 
     class Meta:
         model = StoreManager
-        fields = ["id","manager_name","manager_contact","user_email","store_name","category_name","service_name",
+        fields = ["id","manager_name","manager_contact","user_email","store_name","subcategory_name","category_name","service_name",
             "is_active","created_at","updated_at"]
         
 

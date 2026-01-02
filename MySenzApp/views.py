@@ -290,22 +290,34 @@ class SubcategoryAPIView(APIView):
             "errors": serializer.errors
         })
     
-    def put(self, request): 
-        subcategory_id = request.data.get("id") 
-        name = request.data.get("name") 
-        is_active = request.data.get("is_active") 
-        try: 
-            subcategory = get_object_or_404(SubCategory, pk=subcategory_id) 
-            if not subcategory_id:
-                return Response({ "success": False,"message": "id was required"})
-            if name: 
-                subcategory.name = name 
-            if is_active is not None: 
-                subcategory.is_active = is_active 
-            subcategory.save() 
-            serializer = SubcategorySerilalizer(subcategory) 
-            return Response({ "success": True, "message": "SubCategory updated successfully", "data": serializer.data }) 
-        except Exception as e: return Response({ "success": False, "message": f"Error updating SubCategory: {str(e)}" }, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
+    def put(self, request):
+        subcategory_id = request.data.get("id")
+        if not subcategory_id:
+            return Response({"success": False, "message": "id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            subcategory = get_object_or_404(SubCategory, pk=subcategory_id)
+            serializer = SubcategorySerilalizer(subcategory, data=request.data, partial=True)
+            
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "success": True,
+                    "message": "SubCategory updated successfully",
+                    "data": serializer.data
+                })
+            else:
+                return Response({
+                    "success": False,
+                    "message": "Validation failed",
+                    "errors": serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": f"Error updating SubCategory: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # class AdminNotificationLogListView(generics.ListAPIView):
 #     serializer_class = NotificationLogSerializer
