@@ -3,11 +3,12 @@ from django.db import transaction
 from .models import *
 
 class VendorSerializer(serializers.ModelSerializer): 
+    category_name = serializers.CharField(source="category.name", read_only=True)
     
     class Meta: 
         model = Vendor 
         fields = "__all__" 
-        read_only_fields = ["vendor_id"]
+        read_only_fields = ["vendor_id","category_name"]
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -16,7 +17,6 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = "__all__"
         read_only_fields = ["product_id"]
-
 
 
 

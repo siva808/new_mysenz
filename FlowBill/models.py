@@ -21,6 +21,7 @@ class Vendor(models.Model):
 
     bank_name = models.CharField(max_length=100) 
     branch_name = models.CharField(max_length=100, blank=True, null=True) 
+    bank_state = models.CharField(max_length=50, blank=True, null=True)
     account_holder_name = models.CharField(max_length=100) 
     account_number = models.CharField(max_length=30) 
     ifsc_code = models.CharField(max_length=11) 
@@ -55,14 +56,15 @@ class Vendor(models.Model):
 
 class Product(models.Model):
     sub_category = models.ForeignKey(SubCategory, on_delete=models.CASCADE, related_name="products")
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
+    quantity = models.PositiveIntegerField(default=1) 
     product_id = models.CharField(max_length=20, unique=True, blank=True)
 
     name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
-    quantity = models.PositiveIntegerField(default=1) 
+    description = models.TextField(blank=True)   
     stock = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    hsn_code = models.CharField(max_length=20, blank=True, null=True) 
 
     # Medicine-specific fields 
     brand_name = models.CharField(max_length=100, blank=True, null=True) 
@@ -96,6 +98,9 @@ class Product(models.Model):
     
     class Meta:
         db_table = "product"
+        indexes = [ models.Index(fields=["sub_category"]), 
+                   models.Index(fields=["brand_name"]), 
+                   models.Index(fields=["material"]), ]
 
     
 
@@ -260,10 +265,4 @@ class UOM(models.Model):
     class Meta:
         db_table= "uom"
 
-
-#class subcategory()
-# category based to created fk
-#  discount percentage
-# verify to discount verfication discount 
-#mrp to 20 from 70 
 
