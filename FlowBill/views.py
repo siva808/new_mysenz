@@ -349,21 +349,34 @@ def create_purchase_order(request):
     
 
     return JsonResponse({"success": True, "message": "Purchase Order created successfully"}, status=201)
-
 @csrf_exempt
 @api_view(["POST"])
 def get_products(request):
     category_id = request.data.get("category_id")
     if not category_id:
-        return JsonResponse({"success": False, "message": "category_id is required"}, status=400)
+        return JsonResponse(
+            {"success": False, "message": "category_id is required"},
+            status=400
+        )
 
     try:
         category_id = int(category_id)
     except ValueError:
-        return JsonResponse({"success": False, "message": "category_id must be an integer"}, status=400)
+        return JsonResponse(
+            {"success": False, "message": "category_id must be an integer"},
+            status=400
+        )
+    
+    products = (
+        Product.objects
+        .filter(category_id=category_id)
+        .values(
+            *[field.name for field in Product._meta.fields], "sub_category__name"
+        )
+    )
 
-    products = Product.objects.filter(category_id=category_id).values()
     return JsonResponse({"success": True, "data": list(products)}, status=200)
+
 
 
 
@@ -764,141 +777,174 @@ def UOMdropdown(request):
 
 
 
-@transaction.atomic
-def create_grn_from_po(po_id: int, rows: list, request_id: str, actor: str = "system") -> GRN:
-    
-    existing = GRN.objects.filter(request_id=request_id).first()
-    if existing:
-        return existing
+@api_view(["GET"])
+def store_inventory(request, store_id):
+    qs = ProductBatch.objects.filter(store_id=store_id)\
+        .values("product__name")\
+        .annotate(total_qty=Sum("stock"))
+    return Response(qs)
 
-    po = PurchaseOrder.objects.select_for_update().prefetch_related("items").get(id=po_id)
-    if po.status == "cancelled":
-        raise GRNError("PO is cancelled")
+@api_view(["GET"])
+def central_inventory(request):
+    central_store = Store.objects.get(is_central=True)
+    qs = ProductBatch.objects.filter(store=central_store)\
+        .values("product__name")\
+        .annotate(total_qty=Sum("stock"))
+    return Response(qs)
 
-    # Create GRN record
-    grn_number = next_id(prefix=f"GRN-WH-{po.id}-")
-    grn = GRN.objects.create(
-        grn_number=grn_number,
-        grn_type="warehouse",
-        purchase_order=po,
-        status="Partial",
-        request_id=request_id
-    )
+class GRNListAPIView(APIView):
+    """
+    Fetch all GRNs manually
+    """
+    def get(self, request):
+        grn_type = request.query_params.get("grn_type")
+        qs = GRN.objects.all().prefetch_related("items")
+        if grn_type:
+            qs = qs.filter(grn_type=grn_type)
 
-    # Map PO items for validation
-    poi_map = {poi.id: poi for poi in po.items.all()}
+        data = []
+        for grn in qs:
+            items = []
+            for item in grn.items.all():
+                items.append({
+                    "product_name": item.product_name,
+                    "batch_no": item.batch_no,
+                    "accepted_qty": item.accepted_qty,
+                    "mrp": str(item.mrp),
+                    "purchase_price": str(item.purchase_price),
+                })
+            data.append({
+                "grn_number": grn.grn_number,
+                "grn_type": grn.grn_type,
+                "vendor_name": grn.vendor_name,
+                "net_amount": str(grn.net_amount),
+                "tax_amount": str(grn.tax_amount),
+                "items": items,
+            })
+        return Response(data, status=status.HTTP_200_OK)
 
-    grn_items = []
-    # We'll update product/medicine stock inline (select_for_update on rows)
-    for r in rows:
-        poi_id = int(r.get("purchase_order_item_id") or 0)
-        if poi_id not in poi_map:
-            raise GRNError(f"PO item {poi_id} not found on PO {po_id}")
 
-        poi = poi_map[poi_id]
-
-        # Determine whether this row is product or medicine and validate
-        product_id = r.get("product_id")
-        medicine_id = r.get("medicine_id")
-        if poi.product_id and not product_id:
-            raise GRNError(f"PO item {poi_id} expects product_id")
-        if poi.medicine_id and not medicine_id:
-            raise GRNError(f"PO item {poi_id} expects medicine_id")
-
-        accepted_qty = int(r.get("accepted_qty") or 0)
-        rejected_qty = int(r.get("rejected_qty") or 0)
-        batch_no = (r.get("batch_no") or "").strip()
-        expiry_date = r.get("expiry_date") or None
-        uom = r.get("uom") or poi.uom
-        reason = r.get("reason") or ""
-
-        # Expiry policy: if expiry_date provided and expired, treat accepted as 0 and move to rejected
-        if expiry_date and _is_expired(expiry_date):
-            if accepted_qty > 0:
-                rejected_qty += accepted_qty
-                accepted_qty = 0
-
-        gi = GRNItem(
-            grn=grn,
-            product_id=product_id if product_id else None,
-            medicine_id=medicine_id if medicine_id else None,
-            batch_no=batch_no,
-            expiry_date=expiry_date,
-            accepted_qty=accepted_qty,
-            rejected_qty=rejected_qty,
-            uom=uom,
-            reason=reason
-        )
-        grn_items.append(gi)
-
-        # Update stock on Product or Medicine
-        if accepted_qty > 0:
-            if product_id:
-                Product.objects.filter(id=product_id).update(stock=F('stock') + accepted_qty)
-            elif medicine_id:
-                Medicine.objects.filter(id=medicine_id).update(stock=F('stock') + accepted_qty)
-
-    # Bulk create GRN items
-    GRNItem.objects.bulk_create(grn_items)
-
-    # Update PO status if fully received
-    if _po_fully_received(po):
-        po.status = "received"
-        po.save(update_fields=["status"])
-        grn.status = "Full"
-    else:
-        grn.status = "Partial"
-
-    grn.confirmed_at = timezone.now()
-    grn.save(update_fields=["status", "confirmed_at"])
-    return grn
+class InventoryAPIView(APIView):
+    """
+    Fetch inventory summary manually
+    """
+    def get(self, request):
+        qs = ProductBatch.objects.values("product__name").annotate(total_qty=Sum("stock"))
+        return Response(list(qs), status=status.HTTP_200_OK)
 
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def create_warehouse_grn(request):
-    data = request.data
-    po_id = data.get("po_id")
-    request_id = data.get("request_id")
-    rows = data.get("rows", [])
+class GRNCreateAPIView(APIView):
+    """
+    Create GRN manually without serializer
+    """
 
-    if not po_id or not request_id or not isinstance(rows, list):
-        return Response({"detail": "po_id, request_id and rows[] are required"}, status=status.HTTP_400_BAD_REQUEST)
+    @transaction.atomic
+    def post(self, request):
+        try:
+            # Extract GRN header data
+            grn_data = {
+                "grn_number": request.data.get("grn_number"),
+                "grn_type": request.data.get("grn_type", "Central"),
+                "purchase_order_id": request.data.get("purchase_order_id"),
+                "status": request.data.get("status", "Full"),
+                "invoice_date": request.data.get("invoice_date"),
+                "vendor_name": request.data.get("vendor_name"),
+                "gst_no": request.data.get("gst_no"),
+                "net_amount": request.data.get("net_amount", 0),
+                "tax_amount": request.data.get("tax_amount", 0),
+                "request_id": request.data.get("request_id"),
+            }
 
-    # Basic row validation
-    parsed = []
-    for i, r in enumerate(rows, start=1):
-        poi = _parse_int(r.get("purchase_order_item_id"))
-        product_id = r.get("product_id")
-        medicine_id = r.get("medicine_id")
-        uom = r.get("uom") or ""
-        accepted_qty = _parse_int(r.get("accepted_qty"))
-        rejected_qty = _parse_int(r.get("rejected_qty"))
-        batch_no = (r.get("batch_no") or "").strip()
-        expiry_date = _parse_date(r.get("expiry_date"))
-        reason = r.get("reason") or ""
+            grn = GRN.objects.create(**grn_data)
 
-        if not poi:
-            return Response({"detail": f"Row {i}: purchase_order_item_id required"}, status=400)
-        if not (product_id or medicine_id):
-            return Response({"detail": f"Row {i}: product_id or medicine_id required"}, status=400)
+            # Items come as list of dicts
+            items_data = request.data.get("items", [])
+            for item in items_data:
+                product = Product.objects.filter(name__iexact=item.get("product_name")).first()
 
-        parsed.append({
-            "purchase_order_item_id": poi,
-            "product_id": product_id,
-            "medicine_id": medicine_id,
-            "uom": uom,
-            "accepted_qty": accepted_qty,
-            "rejected_qty": rejected_qty,
-            "batch_no": batch_no,
-            "expiry_date": expiry_date,
-            "reason": reason
-        })
+                grn_item = GRNItem.objects.create(
+                    grn=grn,
+                    product=product,
+                    product_name=item.get("product_name"),
+                    batch_no=item.get("batch_no"),
+                    expiry_date=item.get("expiry_date"),
+                    accepted_qty=item.get("accepted_qty", 0),
+                    received_qty=item.get("received_qty", item.get("accepted_qty", 0)),
+                    damaged_qty=item.get("damaged_qty", 0),
+                    expired_qty=item.get("expired_qty", 0),
+                    rejected_qty=item.get("rejected_qty", 0),
+                    purchase_price=item.get("purchase_price", 0),
+                    mrp=item.get("mrp", 0),
+                    uom=item.get("uom", ""),
+                    discount=item.get("discount", 0),
+                    gst_percent=item.get("gst_percent", 0),
+                    amount=item.get("amount", 0),
+                )
 
-    try:
-        grn = create_grn_from_po(po_id=int(po_id), rows=parsed, request_id=str(request_id), actor=request.user.username)
-    except GRNError as e:
-        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+                # Update ProductBatch stock
+                batch, created = ProductBatch.objects.get_or_create(
+                    product=product,
+                    batch_no=item.get("batch_no"),
+                    defaults={
+                        "expiry_date": item.get("expiry_date"),
+                        "mrp": item.get("mrp", 0),
+                        "purchase_price": item.get("purchase_price", 0),
+                        "uom": item.get("uom", ""),
+                        "stock": 0,
+                    }
+                )
+                batch.stock += item.get("accepted_qty", 0)
+                batch.save(update_fields=["stock"])
 
-    return Response({"grn_number": grn.grn_number, "grn_id": grn.id, "status": grn.status}, status=status.HTTP_201_CREATED)
+            return Response({"message": "GRN created", "grn_number": grn.grn_number}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+from io import TextIOWrapper
+
+class BulkGRNUploadAPIView(APIView):
+    """
+    Bulk upload GRN items from CSV manually
+    """
+
+    @transaction.atomic
+    def post(self, request):
+        file_obj = request.FILES.get("file")
+        if not file_obj:
+            return Response({"error": "CSV file required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        csv_file = TextIOWrapper(file_obj.file, encoding="utf-8")
+        reader = csv.DictReader(csv_file)
+
+        items_data = []
+        for row in reader:
+            items_data.append({
+                "product_name": row["Product Name"],
+                "batch_no": row["Batch"],
+                "expiry_date": row["Exp"],
+                "accepted_qty": int(row["Qty"]),
+                "purchase_price": float(row["Rate"]),
+                "mrp": float(row["MRP"]),
+                "uom": row.get("Pack", ""),
+                "discount": float(row.get("Disc", 0)),
+                "gst_percent": float(row.get("GST%", 0)),
+                "amount": float(row["Amount"]),
+            })
+
+        grn_data = {
+            "grn_number": request.data.get("grn_number"),
+            "grn_type": request.data.get("grn_type", "Central"),
+            "status": request.data.get("status", "Full"),
+            "invoice_date": request.data.get("invoice_date"),
+            "vendor_name": request.data.get("vendor_name"),
+            "gst_no": request.data.get("gst_no"),
+            "net_amount": request.data.get("net_amount", 0),
+            "tax_amount": request.data.get("tax_amount", 0),
+            "request_id": request.data.get("request_id"),
+        }
+
+        grn = create_grn(grn_data, items_data)
+        return Response({"message": "GRN created", "grn_number": grn.grn_number}, status=status.HTTP_201_CREATED)
