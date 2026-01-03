@@ -3,11 +3,12 @@ from django.db import transaction
 from .models import *
 
 class VendorSerializer(serializers.ModelSerializer): 
+    category_name = serializers.CharField(source="category.name", read_only=True)
     
     class Meta: 
         model = Vendor 
         fields = "__all__" 
-        read_only_fields = ["vendor_id"]
+        read_only_fields = ["vendor_id","category_name"]
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -88,3 +89,32 @@ class IndentSerializer(serializers.ModelSerializer):
             instance.save(update_fields=["suggested_vendors"])
 
         return instance
+
+
+
+class GRNItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GRNItem
+        fields = [
+            "product", "product_name", "batch_no", "expiry_date",
+            "accepted_qty", "received_qty", "damaged_qty", "expired_qty", "rejected_qty",
+            "purchase_price", "mrp", "uom", "discount", "gst_percent", "amount"
+        ]
+
+class GRNSerializer(serializers.ModelSerializer):
+    items = GRNItemSerializer(many=True)
+
+    class Meta:
+        model = GRN
+        fields = [
+            "grn_number", "grn_type", "purchase_order", "store", "status",
+            "invoice_date", "vendor_name", "gst_no", "net_amount", "tax_amount",
+            "request_id", "items"
+        ]
+
+    def create(self, validated_data):
+        items_data = validated_data.pop("items")
+        grn = GRN.objects.create(**validated_data)
+        for item_data in items_data:
+            GRNItem.objects.create(grn=grn, **item_data)
+        return grn
