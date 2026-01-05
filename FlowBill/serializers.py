@@ -96,9 +96,9 @@ class GRNItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = GRNItem
         fields = [
-            "product", "product_name", "batch_no", "expiry_date",
+            "product", "batch_no", "expiry_date",
             "accepted_qty", "received_qty", "damaged_qty", "expired_qty", "rejected_qty",
-            "purchase_price", "mrp", "uom", "discount", "gst_percent", "amount"
+            "purchase_price", "mrp","discount", "gst_percent", "amount"
         ]
 
 class GRNSerializer(serializers.ModelSerializer):

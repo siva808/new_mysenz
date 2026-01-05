@@ -52,9 +52,17 @@ class VendorAPIView(APIView):
         return Response({"success": False, "error": serializer.errors})
     
     def get(self, request):
-        vendors = Vendor.objects.all()
-        serializer = VendorSerializer(vendors, many=True)
+        category_id = request.query_params.get("category_id")
 
+        if category_id: 
+            queryset = Vendor.objects.filter(category__id=category_id, is_active=True) 
+            vendor = queryset.values_list("name",flat=True)
+            return Response(
+            {"success": True, "data": list(vendor)})
+        else: 
+            queryset = Vendor.objects.filter(is_active=True) 
+
+        serializer = VendorSerializer(queryset, many=True)
         return Response(
             {"success": True, "data": serializer.data})
 
@@ -240,24 +248,6 @@ class BulkUploadAPIView(APIView):
             status=status.HTTP_201_CREATED
         )
 
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def get_vendor(request):
-    category_name = request.data.get("category_name")
-
-    if not category_name:
-        return Response(
-            {"success": False, "error": "category_name is required"})
-
-    # category_name is already a string, so use it directly
-    vendors = Vendor.objects.filter(categories__contains=[category_name],is_active=True).values("id", "name")
-
-    return Response(
-        {"success": True, "data": list(vendors)},
-        status=status.HTTP_200_OK
-    )
 
 
 
