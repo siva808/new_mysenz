@@ -2,11 +2,10 @@ from django.db import models
 from django.contrib.postgres.fields import ArrayField, JSONField
 import uuid
 from MySenzApp.models import Category,Store,SubCategory
-
+from decimal import Decimal 
 
 
 class Vendor(models.Model):
-    
     vendor_id = models.CharField(max_length=20, unique=True, blank=True)
     name = models.CharField(max_length=100)
     address = models.TextField()
@@ -105,8 +104,6 @@ class Product(models.Model):
 
     
 
-
-
 class PurchaseOrder(models.Model):
 
     po_number = models.CharField(max_length=20, unique=True, blank=True)
@@ -134,7 +131,8 @@ class PurchaseOrder(models.Model):
 
     def __str__(self):
         return self.po_number
-
+    class Meta:
+        db_table="purchaseorder"
 
 class PurchaseOrderItem(models.Model):
     purchase_order = models.ForeignKey(PurchaseOrder, related_name="items", on_delete=models.CASCADE)
@@ -150,7 +148,8 @@ class PurchaseOrderItem(models.Model):
             return f"{self.product.name} x {self.qty} {self.uom}"
         
         return f"Item {self.id}"
-
+    class Meta:
+        db_table = "purchaseorderitem"
 
 
 
@@ -177,6 +176,8 @@ class Indent(models.Model):
             return self.indent_number 
     class Meta: 
         db_table = "indent" 
+
+
 
 class IndentItem(models.Model): 
     indent = models.ForeignKey(Indent, related_name="items", on_delete=models.CASCADE) 
@@ -207,8 +208,7 @@ class GRN(models.Model):
     request_id=models.CharField(max_length=64,unique=True)
 
     invoice_date = models.DateField(null=True, blank=True)
-    vendor_name = models.CharField(max_length=200, blank=True, null=True)
-    gst_no = models.CharField(max_length=20, blank=True, null=True)
+   
     net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
@@ -226,56 +226,72 @@ class GRN(models.Model):
       return self.grn_number
 
 
+
 class GRNItem(models.Model):
 
     grn = models.ForeignKey(GRN, on_delete=models.CASCADE, related_name="items")
-    product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL)
+    product = models.ForeignKey(PurchaseOrderItem, null=True, blank=True, on_delete=models.SET_NULL)
 
-    product_name = models.CharField(max_length=200) 
+    product_name = models.CharField(max_length=200)
     batch_no = models.CharField(max_length=50)
-    manufacturing_date= models.DateField(null=True,blank=True)
+    manufacturing_date = models.DateField(null=True, blank=True)
     expiry_date = models.DateField(null=True, blank=True)
 
-    #subcategory 
     accepted_qty = models.IntegerField()
-    received_qty =models.IntegerField()
-    damaged_qty = models.IntegerField()
-    expired_qty = models.IntegerField()
-    rejected_qty = models.IntegerField(default=0)
+    received_qty = models.IntegerField()
+    damaged_qty = models.IntegerField(blank=True, null=True)
+    expired_qty = models.IntegerField(blank=True, null=True)
+    rejected_qty = models.IntegerField(default=0, blank=True, null=True)
 
-
-    finala_ptr = models.IntegerField()
-    uom = models.CharField(max_length=20)
-    mrp = models.IntegerField()
-    purchase_price = models.DecimalField(max_digits=10, decimal_places=2)  # rate
-    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)  # %
+    mrp = models.DecimalField(max_digits=10, decimal_places=2)
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2)  # vendor rate
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # % or INR
     gst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
+    finala_ptr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
-
-    reason = models.CharField(max_length=50,blank=True)
-    creted_at = models.DateTimeField(auto_now_add=True)
+    reason = models.CharField(max_length=50, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table="grn_item"
+        db_table = "grn_item"
         indexes = [
-            models.Index(fields=["product","batch_no"]),
+            models.Index(fields=["product", "batch_no"]),
         ]
-    
+
+    def calculate_final_ptr(self):
+        mrp = Decimal(self.mrp)
+
+        if self.discount == 0:
+            discount_amount = Decimal(0)
+        elif self.discount < 1:
+            discount_amount = mrp * self.discount
+        elif self.discount <= 100:
+            discount_amount = mrp * (self.discount / Decimal(100))
+        else:
+            discount_amount = self.discount
+
+        return mrp - (discount_amount / Decimal(2))
+
     def save(self, *args, **kwargs):
+        # auto-calc before saving
+        self.finala_ptr = self.calculate_final_ptr()
+        self.amount = self.finala_ptr * self.accepted_qty
+
         super().save(*args, **kwargs)
 
+        # update ProductBatch stock
         batch, created = ProductBatch.objects.get_or_create(
-            product = self.product,
-            batch_no = self.batch_no,
+            product=self.product.product,
+            batch_no=self.batch_no,
             defaults={
                 "expiry_date": self.expiry_date,
                 "mrp": self.mrp,
                 "purchase_price": self.finala_ptr,
-                "stock":0
+                "stock": self.accepted_qty,
             }
         )
-    
         batch.stock += self.accepted_qty
         batch.save(update_fields=["stock"])
 
@@ -300,8 +316,7 @@ class ProductBatch(models.Model):
     expiry_date = models.DateField(null=True, blank=True)
     mrp = models.DecimalField(max_digits=10, decimal_places=2)
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2)
-    uom = models.CharField(max_length=20)
-
+    
     stock = models.PositiveIntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
