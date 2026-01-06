@@ -20,9 +20,7 @@ from .serializers import *
 from MySenzApp.models import *
 from MySenzApp.crud import DocumentManager
 import csv
-from django.core.mail import send_mail 
-from django.conf import settings
-
+from MySenzApp.crud import *
 
 import pytz 
 IST = pytz.timezone("Asia/Kolkata")
@@ -251,10 +249,6 @@ class BulkUploadAPIView(APIView):
 
 
 
-
-
-
-
 @csrf_exempt
 @api_view(["POST"])
 def create_purchase_order(request):
@@ -297,6 +291,9 @@ def create_purchase_order(request):
             "qty": qty,
             "uom": uom
         })
+
+
+        # email message 
         subject = f"New Purchase Order {po.po_number}"
         message = f"""
         Dear {vendor.name},
@@ -328,17 +325,13 @@ def create_purchase_order(request):
         message += "\nRegards,\nElixwel Inventory System"
 
         # Make sure EMAIL_BACKEND and EMAIL_HOST settings are configured in settings.py
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [vendor.email],
-            fail_silently=False,
-        )
+        send_po_email(subject, message, vendor.email)
 
     
 
     return JsonResponse({"success": True, "message": "Purchase Order created successfully"}, status=201)
+
+
 @csrf_exempt
 @api_view(["POST"])
 def get_products(request):

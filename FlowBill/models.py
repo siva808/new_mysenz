@@ -248,6 +248,8 @@ class GRNItem(models.Model):
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # % or INR
     gst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
+    margin = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     finala_ptr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
@@ -273,10 +275,15 @@ class GRNItem(models.Model):
             discount_amount = self.discount
 
         return mrp - (discount_amount / Decimal(2))
+    
+    def calculate_margin(self):
+        mrp = Decimal(self.mrp)
+        purchase_price = Decimal(self.purchase_price)
+        return mrp - purchase_price
 
     def save(self, *args, **kwargs):
-        # auto-calc before saving
         self.finala_ptr = self.calculate_final_ptr()
+        self.margin = self.calculate_margin()
         self.amount = self.finala_ptr * self.accepted_qty
 
         super().save(*args, **kwargs)
@@ -289,6 +296,7 @@ class GRNItem(models.Model):
                 "expiry_date": self.expiry_date,
                 "mrp": self.mrp,
                 "purchase_price": self.finala_ptr,
+                "margin_price": self.margin,
                 "stock": self.accepted_qty,
             }
         )
@@ -315,6 +323,7 @@ class ProductBatch(models.Model):
     batch_no = models.CharField(max_length=50)
     expiry_date = models.DateField(null=True, blank=True)
     mrp = models.DecimalField(max_digits=10, decimal_places=2)
+    margin_price = models.DecimalField(max_digits=10,decimal_places=2)
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2)
     
     stock = models.PositiveIntegerField(default=0)
