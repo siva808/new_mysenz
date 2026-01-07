@@ -4,25 +4,24 @@ from rest_framework import status
 from rest_framework.parsers import JSONParser
 from rest_framework.permissions import IsAdminUser
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework import status, permissions
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Prefetch ,F,Sum
 from django.utils import timezone
-from django.utils import timezone 
 from django.core.paginator import Paginator
-from datetime import date
 from .models import *
 from .serializers import *
 from MySenzApp.models import *
-from MySenzApp.crud import DocumentManager
+from decimal import Decimal
 import csv
+from django.db import transaction
+from django.core.exceptions import ValidationError
 from MySenzApp.crud import *
-
 import pytz 
+from io import TextIOWrapper
+
 IST = pytz.timezone("Asia/Kolkata")
 
 
@@ -337,26 +336,14 @@ def create_purchase_order(request):
 def get_products(request):
     category_id = request.data.get("category_id")
     if not category_id:
-        return JsonResponse(
-            {"success": False, "message": "category_id is required"},
-            status=400
-        )
+        return JsonResponse({"success": False, "message": "category_id is required"},status=400)
 
     try:
         category_id = int(category_id)
     except ValueError:
-        return JsonResponse(
-            {"success": False, "message": "category_id must be an integer"},
-            status=400
-        )
+        return JsonResponse({"success": False, "message": "category_id must be an integer"},status=400)
     
-    products = (
-        Product.objects
-        .filter(category_id=category_id)
-        .values(
-            *[field.name for field in Product._meta.fields], "sub_category__name"
-        )
-    )
+    products = (Product.objects.filter(category_id=category_id).values(*[field.name for field in Product._meta.fields], "sub_category__name"))
 
     return JsonResponse({"success": True, "data": list(products)}, status=200)
 
@@ -561,12 +548,6 @@ def create_indent(request):
     }, status=201)
 
 
-@csrf_exempt 
-@api_view(["GET"]) 
-def get_intent_list(request): 
-    statuses = IndentStatus.objects.values_list("status", flat=True)
-    return Response({"success": True, "statuses": list(statuses)}, status=status.HTTP_200_OK)
-    
 
 @csrf_exempt
 @api_view(["POST"])
@@ -751,22 +732,18 @@ def update_indent(request):
     }, status=200)
 
 
+
 @csrf_exempt
 @api_view(["GET"])
 def UOMdropdown(request):
     data = list(UOM.objects.values_list("name", flat=True))
     return Response({"success": True, "data": data})
-
-
-
-
 @api_view(["GET"])
 def store_inventory(request, store_id):
     qs = ProductBatch.objects.filter(store_id=store_id)\
         .values("product__name")\
         .annotate(total_qty=Sum("stock"))
     return Response(qs)
-
 @api_view(["GET"])
 def central_inventory(request):
     central_store = Store.objects.get(is_central=True)
@@ -774,11 +751,16 @@ def central_inventory(request):
         .values("product__name")\
         .annotate(total_qty=Sum("stock"))
     return Response(qs)
+@csrf_exempt 
+@api_view(["GET"]) 
+def get_intent_list(request): 
+    statuses = IndentStatus.objects.values_list("status", flat=True)
+    return Response({"success": True, "statuses": list(statuses)}, status=status.HTTP_200_OK)
+
+
+
 
 class GRNListAPIView(APIView):
-    """
-    Fetch all GRNs manually
-    """
     def get(self, request):
         grn_type = request.query_params.get("grn_type")
         qs = GRN.objects.all().prefetch_related("items")
@@ -808,20 +790,16 @@ class GRNListAPIView(APIView):
 
 
 class InventoryAPIView(APIView):
-    """
-    Fetch inventory summary manually
-    """
     def get(self, request):
         qs = ProductBatch.objects.values("product__name").annotate(total_qty=Sum("stock"))
         return Response(list(qs), status=status.HTTP_200_OK)
-
+    
 
 
 class GRNCreateAPIView(APIView):
     """
     Create GRN manually without serializer
     """
-
     @transaction.atomic
     def post(self, request):
         try:
@@ -885,14 +863,18 @@ class GRNCreateAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+Request_key=[
+    "product_name", "pack", "manufacturer", "hsn",
+    "batch", "expiry", "mrp", "rate", "qty",
+    "gst_percent", "amount",""
+]
 
-from io import TextIOWrapper
+def csv_to_json(file_obj):
+    csv_file = TextIOWrapper(file_obj.file, encoding="utf-8")
+    reader = csv.DictReader(csv_file)
+    return list(reader)
 
 class BulkGRNUploadAPIView(APIView):
-    """
-    Bulk upload GRN items from CSV manually
-    """
-
     @transaction.atomic
     def post(self, request):
         file_obj = request.FILES.get("file")
