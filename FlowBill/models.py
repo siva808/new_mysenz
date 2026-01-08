@@ -11,13 +11,10 @@ class Vendor(models.Model):
     address = models.TextField()
     mobile = models.CharField(max_length=15)
     email = models.EmailField()
-
     gst = models.CharField(max_length=15)
     category = models.ForeignKey(Category,on_delete=models.CASCADE)
     sub_categories = ArrayField(models.CharField(max_length=50), default=list, blank=True)
-
     #banke details 
-
     bank_name = models.CharField(max_length=100) 
     branch_name = models.CharField(max_length=100, blank=True, null=True) 
     bank_state = models.CharField(max_length=50, blank=True, null=True)
@@ -28,18 +25,14 @@ class Vendor(models.Model):
     upi_id = models.CharField(max_length=50, blank=True, null=True) 
     pan_number = models.CharField(max_length=10, blank=True, null=True) 
     bank_address = models.TextField(blank=True, null=True)
-
     #payment method
     payment = models.CharField(max_length=50,default="CREDIT")
     credit_days = models.PositiveIntegerField(default=0)
-
     #common fields 
     created_at = models.DateTimeField(auto_now_add=True) 
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
-
     
-
     def save(self, *args, **kwargs): 
         if not self.vendor_id:
             unique_code = uuid.uuid4().hex[:8].upper()
@@ -48,6 +41,7 @@ class Vendor(models.Model):
 
     def __str__(self):
         return self.name
+    
     class Meta:
         db_table = "vendor"
     
@@ -59,32 +53,24 @@ class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1) 
     product_id = models.CharField(max_length=20, unique=True, blank=True)
-
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)   
     stock = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
-    #hsn_code = models.CharField(max_length=20, blank=True, null=True) 
-
     # Medicine-specific fields 
     brand_name = models.CharField(max_length=100, blank=True, null=True) 
     molecule = models.CharField(max_length=100, blank=True, null=True) 
     uom = models.CharField(max_length=20, blank=True, null=True) # strip, box, tablet 
-
     # optical fields
     shape = models.CharField(max_length=50, blank=True, null=True) 
     material = models.CharField(max_length=50, blank=True, null=True) 
     color = models.CharField(max_length=50, blank=True, null=True)
     size = models.CharField(max_length=50, blank=True, null=True)
-
-
     #coomon fields
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
 
     def save(self, *args, **kwargs):
-
         if not self.id:  
             super().save(*args, **kwargs)
         if not self.product_id:
@@ -105,18 +91,15 @@ class Product(models.Model):
     
 
 class PurchaseOrder(models.Model):
-
     po_number = models.CharField(max_length=20, unique=True, blank=True)
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
     order_date = models.DateField(auto_now_add=True)
     status = models.CharField(max_length=20, default="created")  # created, received, cancelled
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-
     #common fields
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
-
     def save(self, *args, **kwargs):
         if not self.po_number:
             super().save(*args, **kwargs)
@@ -137,7 +120,6 @@ class PurchaseOrder(models.Model):
 class PurchaseOrderItem(models.Model):
     purchase_order = models.ForeignKey(PurchaseOrder, related_name="items", on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
-
     qty = models.PositiveIntegerField()
     uom = models.CharField(max_length=20)  # Nos, ml, strip, etc.
     unit_price = models.DecimalField(max_digits=10, decimal_places=2,null=True, blank=True)
@@ -159,12 +141,10 @@ class Indent(models.Model):
     status = models.CharField( max_length=150)
     suggested_vendors = ArrayField(models.IntegerField(), default=list, blank=True)
     remarkers = models.CharField(max_length=150)
-
     #coomen fields
     is_active = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True) 
-    
     def save(self, *args, **kwargs): 
         if not self.indent_number: 
             super().save(*args, **kwargs) 
@@ -183,7 +163,6 @@ class IndentItem(models.Model):
     indent = models.ForeignKey(Indent, related_name="items", on_delete=models.CASCADE) 
     product = models.ForeignKey(Product, on_delete=models.CASCADE , null=True, blank=True) 
     quantity = models.PositiveIntegerField() 
-
     def __str__(self):
 
         return f"{self.product.name} x {self.quantity}"
@@ -197,21 +176,24 @@ class IndentStatus(models.Model):
     def __str__(self):
         return self.status
     
+class UOM(models.Model):
+    name= models.CharField(max_length=20)
+
+    def __str__(self):
+        return self.name
+    class Meta:
+        db_table= "uom"
 
 class GRN(models.Model):
     grn_number = models.CharField(max_length=50, unique=True)
     grn_type = models.CharField(max_length=16,)
-
     purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="grns")
     status = models.CharField(max_length=20, choices=[("Partial", "Partial"), ("Full", "Full")])
     dispatch_id = models.IntegerField(null=True, blank=True) 
     request_id=models.CharField(max_length=64,unique=True)
-
     invoice_date = models.DateField(null=True, blank=True)
-   
     net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     confirmed_at = models.DateTimeField(null=True, blank=True)
@@ -227,12 +209,10 @@ class GRN(models.Model):
 
 
 
-class GRNItem(models.Model):
 
+class GRNItem(models.Model):
     grn = models.ForeignKey(GRN, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(PurchaseOrderItem, null=True, blank=True, on_delete=models.SET_NULL)
-
-    product_name = models.CharField(max_length=200)
     batch_no = models.CharField(max_length=50)
     manufacturing_date = models.DateField(null=True, blank=True)
     expiry_date = models.DateField(null=True, blank=True)
@@ -243,13 +223,12 @@ class GRNItem(models.Model):
     expired_qty = models.IntegerField(blank=True, null=True)
     rejected_qty = models.IntegerField(default=0, blank=True, null=True)
 
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     mrp = models.DecimalField(max_digits=10, decimal_places=2)
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2)  # vendor rate
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # % or INR
     gst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-
-    finala_ptr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    margin = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     reason = models.CharField(max_length=50, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -259,36 +238,25 @@ class GRNItem(models.Model):
         indexes = [
             models.Index(fields=["product", "batch_no"]),
         ]
-
-    def calculate_final_ptr(self):
+    
+    def calculate_margin(self):
         mrp = Decimal(self.mrp)
-
-        if self.discount == 0:
-            discount_amount = Decimal(0)
-        elif self.discount < 1:
-            discount_amount = mrp * self.discount
-        elif self.discount <= 100:
-            discount_amount = mrp * (self.discount / Decimal(100))
-        else:
-            discount_amount = self.discount
-
-        return mrp - (discount_amount / Decimal(2))
+        purchase_price = Decimal(self.purchase_price)
+        return mrp - purchase_price
 
     def save(self, *args, **kwargs):
-        # auto-calc before saving
-        self.finala_ptr = self.calculate_final_ptr()
-        self.amount = self.finala_ptr * self.accepted_qty
-
+        self.margin = self.calculate_margin()
+        self.amount = self.purchase_price * self.accepted_qty
         super().save(*args, **kwargs)
 
-        # update ProductBatch stock
         batch, created = ProductBatch.objects.get_or_create(
             product=self.product.product,
             batch_no=self.batch_no,
             defaults={
                 "expiry_date": self.expiry_date,
                 "mrp": self.mrp,
-                "purchase_price": self.finala_ptr,
+                "purchase_price": self.purchase_price,
+                "margin_price": self.margin,
                 "stock": self.accepted_qty,
             }
         )
@@ -301,25 +269,19 @@ class GRNItem(models.Model):
 
 
 
-class UOM(models.Model):
-    name= models.CharField(max_length=20)
-
-    def __str__(self):
-        return self.name
-    class Meta:
-        db_table= "uom"
 
 
 class ProductBatch(models.Model):
+    grn = models.ForeignKey(GRN, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="batches")
     batch_no = models.CharField(max_length=50)
     expiry_date = models.DateField(null=True, blank=True)
     mrp = models.DecimalField(max_digits=10, decimal_places=2)
+    margin_price = models.DecimalField(max_digits=10,decimal_places=2)
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2)
-    
     stock = models.PositiveIntegerField(default=0)
-
     created_at = models.DateTimeField(auto_now_add=True)
+
 
     class Meta:
         db_table = "product_batch"

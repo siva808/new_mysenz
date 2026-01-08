@@ -1,3 +1,12 @@
+import threading
+from functools import wraps
+from django.core.mail import send_mail
+from django.conf import settings
+
+
+
+
+
 class DocumentManager:
     @staticmethod
     def fetch_row(model_class, filters={}, field_list=[]):
@@ -63,3 +72,25 @@ class DocumentManager:
     @staticmethod
     def count_rows(model_class, filters={}):
         return model_class.filter(**filters).count()
+
+
+# Background decorator
+def run_in_background(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        thread = threading.Thread(target=func, args=args, kwargs=kwargs)
+        thread.daemon = True
+        thread.start()
+        return True
+    return wrapper
+
+# email sender
+@run_in_background
+def send_po_email(subject, message, recipient):
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [recipient],
+        fail_silently=False,
+    )

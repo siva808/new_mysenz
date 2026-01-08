@@ -574,3 +574,102 @@ urlpatterns = [
 
 
 
+
+
+
+
+import csv
+from io import TextIOWrapper
+from decimal import Decimal
+from django.db import transaction
+from django.core.exceptions import ValidationError
+
+REQUIRED_KEYS = [
+    "product_name", "pack", "manufacturer", "hsn",
+    "batch", "expiry", "mrp", "rate", "qty",
+    "gst_percent", "amount"
+]
+
+def csv_to_json(file_obj):
+    """
+    Convert CSV file to JSON list of dicts.
+    """
+    csv_file = TextIOWrapper(file_obj.file, encoding="utf-8")
+    reader = csv.DictReader(csv_file)
+    return list(reader)
+
+@transaction.atomic
+def bulk_upload_grn(file_obj, grn_data):
+    """
+    Validate CSV headers + values, then create GRN and items.
+    """
+    rows = csv_to_json(file_obj)
+
+    # --- Header validation ---
+    missing_headers = [h for h in REQUIRED_KEYS if h not in rows[0].keys()]
+    if missing_headers:
+        raise ValidationError(f"Missing headers: {', '.join(missing_headers)}")
+
+    # --- Create GRN ---
+    grn = GRN.objects.create(**grn_data)
+
+    errors = []
+    created_items = []
+
+    for idx, row in enumerate(rows, start=1):
+        try:
+            # --- Value validation ---
+            qty = int(row["qty"])
+            mrp = Decimal(row["mrp"])
+            rate = Decimal(row["rate"])
+            gst_percent = Decimal(row["gst_percent"])
+
+            if qty < 0:
+                raise ValidationError("Quantity cannot be negative")
+            if mrp <= 0 or rate <= 0:
+                raise ValidationError("MRP and Rate must be positive")
+            if rate > mrp:
+                raise ValidationError("Rate cannot exceed MRP")
+            if not (0 <= gst_percent <= 100):
+                raise ValidationError("GST% must be between 0 and 100")
+
+            # --- Product lookup ---
+            product = Product.objects.filter(name__iexact=row["product_name"]).first()
+            if not product:
+                raise ValidationError(f"Product {row['product_name']} not found")
+
+            # --- Create GRNItem ---
+            item = GRNItem.objects.create(
+                grn=grn,
+                product=product,
+                product_name=row["product_name"],
+                batch_no=row["batch"],
+                expiry_date=row["expiry"],  # parse to date if needed
+                accepted_qty=qty,
+                received_qty=qty,
+                mrp=mrp,
+                purchase_price=rate,
+                gst_percent=gst_percent,
+                amount=Decimal(row["amount"]),
+            )
+            created_items.append(item)
+
+            # --- Update ProductBatch ---
+            batch, created = ProductBatch.objects.get_or_create(
+                product=product,
+                batch_no=row["batch"],
+                defaults={
+                    "expiry_date": row["expiry"],
+                    "mrp": mrp,
+                    "purchase_price": rate,
+                    "margin_price": mrp - rate,
+                    "stock": 0,
+                }
+            )
+            batch.stock += qty
+            batch.save(update_fields=["stock"])
+
+        except Exception as e:
+            errors.append(f"Row {idx}: {str(e)}")
+
+    return {"grn": grn, "created_items": created_items, "errors": errors}

@@ -10,7 +10,6 @@ class VendorSerializer(serializers.ModelSerializer):
         fields = "__all__" 
         read_only_fields = ["vendor_id","category_name"]
 
-
 class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -18,31 +17,47 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["product_id"]
 
-
-
-
-
 class IndentItemSerializer(serializers.ModelSerializer): 
-
+    
     product_name = serializers.CharField(source="product.name", read_only=True) 
-
     class Meta: 
         model = IndentItem 
         fields = ["id", "product", "product_name", "quantity"]
 
+class GRNItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GRNItem
+        fields = [
+            "product", "batch_no", "expiry_date",
+            "accepted_qty", "received_qty", "damaged_qty", "expired_qty", "rejected_qty",
+            "purchase_price", "mrp","discount", "gst_percent", "amount"
+        ]
+class GRNSerializer(serializers.ModelSerializer):
+    items = GRNItemSerializer(many=True)
 
+    class Meta:
+        model = GRN
+        fields = [
+            "grn_number", "grn_type", "purchase_order", "store", "status",
+            "invoice_date", "vendor_name", "gst_no", "net_amount", "tax_amount",
+            "request_id", "items"
+        ]
+
+    def create(self, validated_data):
+        items_data = validated_data.pop("items")
+        grn = GRN.objects.create(**validated_data)
+        for item_data in items_data:
+            GRNItem.objects.create(grn=grn, **item_data)
+        return grn
 
 
 class IndentSerializer(serializers.ModelSerializer):
-
     items = IndentItemSerializer(many=True)
     suggested_vendors = serializers.ListField(child=serializers.DictField(), required=False)
-
     class Meta:
         model = Indent
         fields = ["id", "indent_number", "store", "created_at", "status", "items", "suggested_vendors"]
         read_only_fields = ["indent_number", "created_at"]
-
 
     @transaction.atomic
     def create(self, validated_data):
@@ -92,29 +107,3 @@ class IndentSerializer(serializers.ModelSerializer):
 
 
 
-class GRNItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GRNItem
-        fields = [
-            "product", "batch_no", "expiry_date",
-            "accepted_qty", "received_qty", "damaged_qty", "expired_qty", "rejected_qty",
-            "purchase_price", "mrp","discount", "gst_percent", "amount"
-        ]
-
-class GRNSerializer(serializers.ModelSerializer):
-    items = GRNItemSerializer(many=True)
-
-    class Meta:
-        model = GRN
-        fields = [
-            "grn_number", "grn_type", "purchase_order", "store", "status",
-            "invoice_date", "vendor_name", "gst_no", "net_amount", "tax_amount",
-            "request_id", "items"
-        ]
-
-    def create(self, validated_data):
-        items_data = validated_data.pop("items")
-        grn = GRN.objects.create(**validated_data)
-        for item_data in items_data:
-            GRNItem.objects.create(grn=grn, **item_data)
-        return grn
