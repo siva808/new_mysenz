@@ -15,7 +15,8 @@ urlpatterns = [
    path("get_po_details/",get_po_details,name="get_po_details"),
    path("update_po_status/",po_update_status,name="update_po_status"),
    path("update_indent/",update_indent,name="update_indent"),
-   path("UOMdropdown/",UOMdropdown,name="UOMdropdown")
+   path("UOMdropdown/",UOMdropdown,name="UOMdropdown"),
+   path("create-grn/", create_grn),
+   path("get_grn/",GRNView.as_view())
 
-   
 ]

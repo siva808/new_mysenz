@@ -48,7 +48,6 @@ class Vendor(models.Model):
 
 
 class Product(models.Model):
-
     sub_category = models.ForeignKey(SubCategory, on_delete=models.CASCADE, related_name="products")
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1) 
@@ -60,7 +59,7 @@ class Product(models.Model):
     # Medicine-specific fields 
     brand_name = models.CharField(max_length=100, blank=True, null=True) 
     molecule = models.CharField(max_length=100, blank=True, null=True) 
-    uom = models.CharField(max_length=20, blank=True, null=True) # strip, box, tablet 
+    uom = models.CharField(max_length=20, blank=True, null=True)  
     # optical fields
     shape = models.CharField(max_length=50, blank=True, null=True) 
     material = models.CharField(max_length=50, blank=True, null=True) 
@@ -90,7 +89,10 @@ class Product(models.Model):
 
     
 
+
+
 class PurchaseOrder(models.Model):
+
     po_number = models.CharField(max_length=20, unique=True, blank=True)
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
     order_date = models.DateField(auto_now_add=True)
@@ -117,6 +119,10 @@ class PurchaseOrder(models.Model):
     class Meta:
         db_table="purchaseorder"
 
+
+
+
+
 class PurchaseOrderItem(models.Model):
     purchase_order = models.ForeignKey(PurchaseOrder, related_name="items", on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
@@ -132,6 +138,8 @@ class PurchaseOrderItem(models.Model):
         return f"Item {self.id}"
     class Meta:
         db_table = "purchaseorderitem"
+
+
 
 
 
@@ -163,12 +171,43 @@ class IndentItem(models.Model):
     indent = models.ForeignKey(Indent, related_name="items", on_delete=models.CASCADE) 
     product = models.ForeignKey(Product, on_delete=models.CASCADE , null=True, blank=True) 
     quantity = models.PositiveIntegerField() 
-    def __str__(self):
 
+    def __str__(self):
         return f"{self.product.name} x {self.quantity}"
-     
     class Meta: 
         db_table = "indent_item"
+
+
+class Dispatch(models.Model):
+    dispatch_id = models.CharField(max_length=15,unique=True,blank=True)
+    indent = models.ForeignKey(Indent, on_delete=models.CASCADE,related_name="indent")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+    def save(self, *args, **kwargs): 
+        if not self.dispatch_id: 
+            super().save(*args, **kwargs) 
+            self.dispatch_id = f"GRN-WH-{self.id:07d}" 
+            super().save(update_fields=["dispatch_id"]) 
+        else: 
+            super().save(*args, **kwargs)
+    class Meta:
+        db_table = "dispatch"
+
+class DispatchItem(models.Model):
+    dispatch = models.ForeignKey(Dispatch,on_delete=models.CASCADE,related_name="dispatch")
+    product = models.ForeignKey(Product,on_delete=models.CASCADE)
+    qty = models.PositiveIntegerField() 
+    mrp = models.DecimalField(max_digits=10, decimal_places=2)
+    margin = models.DecimalField(max_digits=10, decimal_places=2, default=0) 
+    expiry_date = models.DateField() 
+    manufacturing_date = models.DateField()
+
+    class Meta:
+        db_table = "dispatchitem"
+    
+
 
 class IndentStatus(models.Model):
     status = models.CharField(max_length=50)
@@ -184,13 +223,12 @@ class UOM(models.Model):
     class Meta:
         db_table= "uom"
 
+
+
 class GRN(models.Model):
     grn_number = models.CharField(max_length=50, unique=True)
-    grn_type = models.CharField(max_length=16,)
     purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="grns")
-    status = models.CharField(max_length=20, choices=[("Partial", "Partial"), ("Full", "Full")])
-    dispatch_id = models.IntegerField(null=True, blank=True) 
-    request_id=models.CharField(max_length=64,unique=True)
+    status = models.CharField(max_length=20) 
     invoice_date = models.DateField(null=True, blank=True)
     net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -206,21 +244,32 @@ class GRN(models.Model):
 
     def __str__(self):
       return self.grn_number
+    
+    def save(self, *args, **kwargs): 
+        if not self.grn_number: 
+            super().save(*args, **kwargs) 
+            self.grn_number = f"GRN-WH-{self.id:07d}" 
+            super().save(update_fields=["grn_number"]) 
+        else: 
+            super().save(*args, **kwargs)
+
+
 
 
 
 
 class GRNItem(models.Model):
+    
     grn = models.ForeignKey(GRN, on_delete=models.CASCADE, related_name="items")
-    product = models.ForeignKey(PurchaseOrderItem, null=True, blank=True, on_delete=models.SET_NULL)
+    product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL)
     batch_no = models.CharField(max_length=50)
     manufacturing_date = models.DateField(null=True, blank=True)
     expiry_date = models.DateField(null=True, blank=True)
 
-    accepted_qty = models.IntegerField()
-    received_qty = models.IntegerField()
+    accepted_qty = models.IntegerField(blank=True, null=True)
+    received_qty = models.IntegerField(blank=True, null=True)
     damaged_qty = models.IntegerField(blank=True, null=True)
-    expired_qty = models.IntegerField(blank=True, null=True)
+    excess_qty = models.IntegerField(blank=True, null=True)
     rejected_qty = models.IntegerField(default=0, blank=True, null=True)
 
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -230,7 +279,7 @@ class GRNItem(models.Model):
     gst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     margin = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
-    reason = models.CharField(max_length=50, blank=True)
+    reason = models.CharField(max_length=50, blank=True,null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -250,9 +299,10 @@ class GRNItem(models.Model):
         super().save(*args, **kwargs)
 
         batch, created = ProductBatch.objects.get_or_create(
-            product=self.product.product,
+            product=self.product,
             batch_no=self.batch_no,
             defaults={
+                "grn": self.grn,
                 "expiry_date": self.expiry_date,
                 "mrp": self.mrp,
                 "purchase_price": self.purchase_price,
@@ -262,10 +312,11 @@ class GRNItem(models.Model):
         )
         batch.stock += self.accepted_qty
         batch.save(update_fields=["stock"])
-
     def __str__(self):
         name = self.product.name if self.product else "unknown"
         return f"{self.grn.grn_number} | {name} | {self.accepted_qty}/{self.rejected_qty}"
+
+
 
 
 
@@ -292,3 +343,28 @@ class ProductBatch(models.Model):
 
     def __str__(self):
         return f"{self.product.name} | Batch {self.batch_no} | Stock {self.stock}"
+
+
+
+# class StoreGrn(models.Model):
+#     grn_number = models.CharField(max_length=50, unique=True)
+#     indent = models.ForeignKey(Indent, on_delete=models.CASCADE, related_name="store_grns") 
+#     status = models.CharField(max_length=20, default="created") 
+#     received_date = models.DateField(auto_now_add=True) 
+#     net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0) 
+#     created_at = models.DateTimeField(auto_now_add=True) 
+#     updated_at = models.DateTimeField(auto_now=True)
+
+#     def save(self,*args, **kwargs):
+#         if not self.grn_number:
+#             super().save(*args,**kwargs)
+#             self.grn_number= f"GRN-ST-{self.id:07d}"
+#             super().save(update_fields=["grn_number"])
+#         else:
+#             super().save(*args,**kwargs)
+
+#     def __str__(self):
+#         return self.grn_number
+    
+#     class Meta:
+#         db_table = "storegrn"

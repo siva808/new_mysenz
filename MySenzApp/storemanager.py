@@ -75,11 +75,7 @@ def create_store_manager(request):
 
         serializer = StoreConfigSerializer(data=details)
         if not serializer.is_valid():
-            return Response({
-                "success": False,
-                "message": "Validation failed",
-                "errors": serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"success": False,"message": "Validation failed","errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
 
@@ -87,8 +83,9 @@ def create_store_manager(request):
             store_name=data["storeName"],
             store_contact=data["storeContact"],
             store_address=data["storeAddress"],
-            gst=data.get("gst"),
-            gst_certificate=request.FILES.get("gstCertificate"),  # ✅ handle file uploads
+            gst=data["gstNumber"],
+            dl=data["dlNumber"],
+            gst_certificate=request.FILES.get("gstCertificate"), 
             dl_image=request.FILES.get("dlImage"),
             FFSI_image=request.FILES.get("ffsiImage")
         )
@@ -106,19 +103,11 @@ def create_store_manager(request):
             manager_contact=data["managerContact"]
         )
 
-        return Response({
-            "success": True,
-            "message": "StoreManager created successfully",
-            "store": StoreSerializer(store).data,
-            "manager": StoreManagerSerializer(store_manager).data
-        }, status=status.HTTP_201_CREATED)
+        return Response({"success": True,"message": "StoreManager created successfully"})
 
     except Exception as e:
-        return Response({
-            "success": False,
-            "message": "Unexpected error occurred",
-            "details": str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"success": False,"message": "Unexpected error occurred","details": str(e)
+        },status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         
 class StoreManagerDetailView(APIView):

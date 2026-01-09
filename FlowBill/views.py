@@ -28,8 +28,6 @@ IST = pytz.timezone("Asia/Kolkata")
 # vendor crud operation using to serializer
 
 class VendorAPIView(APIView):
-    permission_classes = [IsAdminUser] 
-
     def post(self, request):
         serializer = VendorSerializer(data=request.data)
         if serializer.is_valid():
@@ -53,7 +51,7 @@ class VendorAPIView(APIView):
 
         if category_id: 
             queryset = Vendor.objects.filter(category__id=category_id, is_active=True) 
-            vendor = queryset.values_list("name",flat=True)
+            vendor = queryset.values("id","name")
             return Response(
             {"success": True, "data": list(vendor)})
         else: 
@@ -384,6 +382,7 @@ def get_po_details(request):
             summary = po_category_summary(po.items.all())
             data.append({
                 "po_number": po.po_number,
+                "id":po.id,
                 "vendor": getattr(po.vendor, "name", po.vendor_id),
                 "created_at": timezone.localtime(po.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
                 "status": po.status,
@@ -405,6 +404,7 @@ def get_po_details(request):
             summary = po_category_summary(po.items.all())
             data.append({
                 "po_number": po.po_number,
+                "id":po.id,
                 "vendor": getattr(po.vendor, "name", po.vendor_id),
                 "created_at": timezone.localtime(po.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
                 "status": po.status,
@@ -581,7 +581,7 @@ def get_indent_details(request):
     indents_qs = (
         Indent.objects
         .select_related("store")
-        .prefetch_related("items__product__category", "items__medicine__category")
+        .prefetch_related("items__product__category")
     )
 
     # Apply filters
@@ -913,3 +913,118 @@ class BulkGRNUploadAPIView(APIView):
 
         grn = create_grn(grn_data, items_data)
         return Response({"message": "GRN created", "grn_number": grn.grn_number}, status=status.HTTP_201_CREATED)
+
+
+
+@csrf_exempt
+@api_view(["POST"])
+@transaction.atomic
+def create_grn(request):
+    try:
+        data = request.data  
+        purchase_order_id = data.get("id")
+        items = data.get("items", [])
+
+        po = PurchaseOrder.objects.filter(id=purchase_order_id).first()
+
+      
+        grn = GRN.objects.create(
+            purchase_order_id=purchase_order_id,
+            status=data.get("status"),
+            invoice_date=data.get("invoice_date"),
+            net_amount=data.get("net_amount", 0),
+            tax_amount=data.get("tax_amount", 0),
+        )
+
+        # Create GRN Items
+        for item in items:
+            GRNItem.objects.create(
+                grn=grn,
+                product_id=item.get("id"),
+                batch_no=item.get("batch_no"),
+                manufacturing_date=item.get("mfg_date"),
+                expiry_date=item.get("exp_date"), 
+                accepted_qty=item.get("accepted_qty", 0),
+                received_qty=item.get("received_qty", 0),
+                damaged_qty=item.get("damaged_qty", 0),
+                rejected_qty=item.get("rejected_qty", 0),
+                excess_qty = item.get("excess_qty",0),
+                reason=item.get("reason"),
+                mrp=item.get("mrp"),
+                purchase_price=item.get("purchase_price"),
+                discount=item.get("discount", 0),
+                gst_percent=item.get("gst_perc", 0),
+            )
+            all_received = all(i.accepted_qty == i.received_qty for i in grn.items.all())
+            if all_received:
+                po.status = "Completed"
+                po.save(update_fields=["status"])
+
+        return Response({"success": True,"message": "GRN created successfully"}, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        transaction.set_rollback(True)
+        return Response({
+            "success": False,
+            "message": f"Error creating GRN: {str(e)}"
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class GRNView(APIView):
+    def get(self, request):
+        grn_number = request.query_params.get("grn_number")
+
+        if grn_number:
+
+            try:
+                grn = GRN.objects.get(grn_number=grn_number)
+                items = grn.items.all()
+
+                data = []
+                for item in items:
+                    po_item = PurchaseOrderItem.objects.filter( purchase_order=grn.purchase_order, product=item.product ).first()
+                    data.append({
+                        "id": item.id,
+                        "product_name": item.product.name if item.product else None,
+                        "brand_name": item.product.brand_name if item.product else None, 
+                        "uom": item.product.uom if item.product else None, 
+                        "qty": po_item.qty if po_item else None,
+                        "batch_no": item.batch_no,
+                        "accepted_qty": item.accepted_qty,
+                        "received_qty": item.received_qty,
+                        "damaged_qty": item.damaged_qty,
+                        "excess_qty": item.excess_qty,
+                        "rejected_qty": item.rejected_qty,
+                        "amount": str(item.amount),
+                        "mrp": str(item.mrp),
+                        "purchase_price": str(item.purchase_price),
+                        "discount": str(item.discount),
+                        "gst_perc": str(item.gst_percent),
+                        "margin": str(item.margin),
+                        "reason": item.reason,
+                        "mfg_date":item.manufacturing_date,
+                        "exp_date":item.expiry_date,
+
+                    })
+                    pass
+                return Response({"success":True,"data": data}, status=status.HTTP_200_OK)
+
+            except GRN.DoesNotExist:
+                return Response({"success":False,"error": "GRN not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        else:
+            grns = GRN.objects.all()
+            data = []
+            for grn in grns:
+                data.append({
+                    "grn_number": grn.grn_number,
+                    "category": getattr(grn.items.first().product.category, "name", None),
+                    "vendor": getattr(grn.purchase_order.vendor, "name", None),
+                    "purchase_number": grn.purchase_order.po_number,
+                    "created_at":timezone.localtime(grn.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
+                    "invoice_date": grn.invoice_date,
+                    "net_amount": str(grn.net_amount),
+                    "tax_amount": str(grn.tax_amount),
+                })
+            return Response({"success":True, "data": data} , status=status.HTTP_200_OK)

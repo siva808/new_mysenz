@@ -13,15 +13,24 @@ class AdminUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdminUser
         fields = ["id", "username", "email", "role", "is_active"]
-        
+
+
+
 class StoreConfigSerializer(serializers.Serializer):
-    storeName = serializers.CharField(max_length=150)
-    storeContact = serializers.CharField(max_length=20)
+    storeName = serializers.CharField()
+    storeContact = serializers.CharField()
     storeAddress = serializers.CharField()
-    managerName = serializers.CharField(max_length=150)
-    managerContact = serializers.CharField(max_length=20)
+    gstNumber = serializers.CharField()   
+    dlNumber = serializers.CharField()   
+    gstCertificate = serializers.ImageField(required=False, allow_null=True)
+    dlImage = serializers.ImageField(required=False, allow_null=True)
+    FFSIImage = serializers.ImageField(required=False, allow_null=True)
     managerEmail = serializers.EmailField()
     managerPassword = serializers.CharField(write_only=True)
+    managerName = serializers.CharField()
+    managerContact = serializers.CharField()
+
+
 
 class StoreSerializer(serializers.ModelSerializer):
     class Meta:
