@@ -87,8 +87,6 @@ class Product(models.Model):
                    models.Index(fields=["brand_name"]), 
                    models.Index(fields=["material"]), ]
 
-    
-
 
 
 class PurchaseOrder(models.Model):
@@ -118,8 +116,10 @@ class PurchaseOrder(models.Model):
         return self.po_number
     class Meta:
         db_table="purchaseorder"
-
-
+        indexes = [
+            models.Index(fields=["vendor", "status"]),
+        ]
+        
 
 
 
@@ -141,12 +141,10 @@ class PurchaseOrderItem(models.Model):
 
 
 
-
-
 class Indent(models.Model):
     indent_number = models.CharField(max_length=20, unique=True, blank=True) 
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="indents") 
-    status = models.CharField( max_length=150)
+    status = models.CharField(max_length=150)
     suggested_vendors = ArrayField(models.IntegerField(), default=list, blank=True)
     remarkers = models.CharField(max_length=150)
     #coomen fields
@@ -164,6 +162,9 @@ class Indent(models.Model):
             return self.indent_number 
     class Meta: 
         db_table = "indent" 
+        indexes = [
+            models.Index(fields=["store", "status"]),
+        ]
 
 
 
@@ -176,6 +177,7 @@ class IndentItem(models.Model):
         return f"{self.product.name} x {self.quantity}"
     class Meta: 
         db_table = "indent_item"
+
 
 
 class Dispatch(models.Model):
@@ -195,6 +197,8 @@ class Dispatch(models.Model):
     class Meta:
         db_table = "dispatch"
 
+
+
 class DispatchItem(models.Model):
     dispatch = models.ForeignKey(Dispatch,on_delete=models.CASCADE,related_name="dispatch")
     product = models.ForeignKey(Product,on_delete=models.CASCADE)
@@ -206,7 +210,7 @@ class DispatchItem(models.Model):
 
     class Meta:
         db_table = "dispatchitem"
-    
+
 
 
 class IndentStatus(models.Model):
@@ -214,7 +218,9 @@ class IndentStatus(models.Model):
 
     def __str__(self):
         return self.status
-    
+
+
+
 class UOM(models.Model):
     name= models.CharField(max_length=20)
 
@@ -255,11 +261,7 @@ class GRN(models.Model):
 
 
 
-
-
-
 class GRNItem(models.Model):
-    
     grn = models.ForeignKey(GRN, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL)
     batch_no = models.CharField(max_length=50)
@@ -315,10 +317,6 @@ class GRNItem(models.Model):
     def __str__(self):
         name = self.product.name if self.product else "unknown"
         return f"{self.grn.grn_number} | {name} | {self.accepted_qty}/{self.rejected_qty}"
-
-
-
-
 
 
 

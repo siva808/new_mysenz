@@ -1,22 +1,19 @@
-from .models import *
-from .serializers import *
-from rest_framework.exceptions import NotFound
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
-from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.core.mail import send_mail
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.shortcuts import get_object_or_404
+from django.contrib.auth import authenticate
+from .models import *
+from .serializers import *
 
 token_generator = PasswordResetTokenGenerator()
 
@@ -61,6 +58,7 @@ def admin_login(request):
 
     return Response({"success": False, "message": "Invalid credentials"})
 
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def forgot_password(request):
@@ -81,6 +79,7 @@ def forgot_password(request):
 
     return Response({"success": True, "message": "Password reset link sent"})
 
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def reset_password(request, uidb64, token):
@@ -100,6 +99,7 @@ def reset_password(request, uidb64, token):
     user.set_password(new_password)
     user.save()
     return Response({"success": True, "message": "Password reset successful"})
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -143,6 +143,7 @@ def get_dashboard_url(role):
     else:
         return "/dashboard/customer"
 
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_user(request):
@@ -165,6 +166,24 @@ def create_user(request):
             "role": user.role
         }
     })
+
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def bookingdropdown(request):
+    #data = list(BookingStatus.objects.values("id", "status"))
+    data = list(BookingStatus.objects.values_list("status", flat=True))
+    return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def paymentdropdown(request):
+    #data = list(BookingStatus.objects.values("id", "status"))
+    data = list(PaymentStatus.objects.values_list("status", flat=True))
+    return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
+
 
 class StoreManagerPasscodeResetView(generics.UpdateAPIView):
     serializer_class = StoreManagerSerializer
@@ -209,6 +228,7 @@ class ServiceListView(generics.ListAPIView):
 
         return queryset
     
+
 class TimeSlotListView(generics.ListAPIView):
     serializer_class = TimeSlotSerializer
     permission_classes = [permissions.AllowAny]
@@ -234,21 +254,6 @@ class IsAdminOrStaff(permissions.BasePermission):
 
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def bookingdropdown(request):
-    #data = list(BookingStatus.objects.values("id", "status"))
-    data = list(BookingStatus.objects.values_list("status", flat=True))
-    return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def paymentdropdown(request):
-    #data = list(BookingStatus.objects.values("id", "status"))
-    data = list(PaymentStatus.objects.values_list("status", flat=True))
-    return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
-
-
-
 class SubcategoryAPIView(APIView):
 
     def get(self, request):
@@ -257,17 +262,13 @@ class SubcategoryAPIView(APIView):
         try:
             if category_id:
                 subcategories = SubCategory.objects.filter(category_id=category_id).order_by("id")
-                serializer = SubcategorySerilalizer(subcategories, many=True)
+                serializer = SubcategoryDetailSerilalizer(subcategories, many=True)
                 return Response({"success": True,"message": "Subcategories retrieved successfully", "data": serializer.data})
 
             
             subcategories = SubCategory.objects.all().order_by("id")
-            serializer = SubcategorySerilalizer(subcategories, many=True)
-            return Response({
-                "success": True,
-                "message": "All subcategories retrieved successfully",
-                "data": serializer.data
-            })
+            serializer = SubcategoryDetailSerilalizer(subcategories, many=True)
+            return Response({"success": True,"message": "All subcategories retrieved successfully","data": serializer.data})
 
         except Exception as e:
             return Response({

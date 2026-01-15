@@ -10,6 +10,7 @@ class VendorSerializer(serializers.ModelSerializer):
         fields = "__all__" 
         read_only_fields = ["vendor_id","category_name"]
 
+
 class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -17,12 +18,14 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["product_id"]
 
+
 class IndentItemSerializer(serializers.ModelSerializer): 
     
     product_name = serializers.CharField(source="product.name", read_only=True) 
     class Meta: 
         model = IndentItem 
         fields = ["id", "product", "product_name", "quantity"]
+
 
 class GRNItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -32,6 +35,8 @@ class GRNItemSerializer(serializers.ModelSerializer):
             "accepted_qty", "received_qty", "damaged_qty", "expired_qty", "rejected_qty",
             "purchase_price", "mrp","discount", "gst_percent", "amount"
         ]
+
+
 class GRNSerializer(serializers.ModelSerializer):
     items = GRNItemSerializer(many=True)
 

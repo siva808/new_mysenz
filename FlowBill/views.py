@@ -11,39 +11,47 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Prefetch ,F,Sum
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.db import transaction
+from django.core.exceptions import ValidationError
+from io import TextIOWrapper
+from decimal import Decimal
 from .models import *
 from .serializers import *
 from MySenzApp.models import *
-from decimal import Decimal
-import csv
-from django.db import transaction
-from django.core.exceptions import ValidationError
 from MySenzApp.crud import *
+import csv
 import pytz 
-from io import TextIOWrapper
+
+
+
 
 IST = pytz.timezone("Asia/Kolkata")
 
 
-# vendor crud operation using to serializer
+
 
 class VendorAPIView(APIView):
     def post(self, request):
+
         serializer = VendorSerializer(data=request.data)
+
         if serializer.is_valid():
             vendor = serializer.save()
-            return Response(
-                {"success":True,"message": "Vendor created", "vendor_id": vendor.vendor_id},)
+            return Response({"success":True,"message": "Vendor created", "vendor_id": vendor.vendor_id})
+        
         return Response({"success": False, "error": serializer.errors})
 
     
     def put(self, request): 
         vendor_id = request.data.get("vendor_id") 
-        vendor = get_object_or_404(Vendor, vendor_id=vendor_id) 
+
+        vendor = get_object_or_404(Vendor, vendor_id=vendor_id)
         serializer = VendorSerializer(vendor, data=request.data, partial=True) 
+
         if serializer.is_valid(): 
             serializer.save() 
             return Response( {"success": True, "message": "Vendor updated", "data": serializer.data}) 
+        
         return Response({"success": False, "error": serializer.errors})
     
     def get(self, request):
@@ -52,14 +60,14 @@ class VendorAPIView(APIView):
         if category_id: 
             queryset = Vendor.objects.filter(category__id=category_id, is_active=True) 
             vendor = queryset.values("id","name")
-            return Response(
-            {"success": True, "data": list(vendor)})
+
+            return Response({"success": True, "data": list(vendor)})
         else: 
             queryset = Vendor.objects.filter(is_active=True) 
 
         serializer = VendorSerializer(queryset, many=True)
-        return Response(
-            {"success": True, "data": serializer.data})
+
+        return Response({"success": True, "data": serializer.data})
 
     def delete(self, request):
         json_request = JSONParser().parse(request)
@@ -67,21 +75,15 @@ class VendorAPIView(APIView):
 
         vendor = get_object_or_404(Vendor, pk=vendor_id)
         vendor.delete()
-        return Response(
-            {"success": True, "message": "Vendor deleted"},
-            status=status.HTTP_204_NO_CONTENT
-        )
+        return Response({"success": True, "message": "Vendor deleted"},status=status.HTTP_204_NO_CONTENT)
     
 
-#product crud operations 
 
 class ProductAPIView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
         queryset = Product.objects.all()
-
-        # Extract filters from query params
         category_id = request.query_params.get("category_id")
         brand_name = request.query_params.get("brand_name")
         molecule = request.query_params.get("molecule")
@@ -110,42 +112,38 @@ class ProductAPIView(APIView):
         products_page = paginator.get_page(page)
 
         serializer = ProductSerializer(products_page, many=True)
-        return Response({
-            "success": True,
-            "count": paginator.count,
-            "num_pages": paginator.num_pages,
-            "current_page": page,
-            "data": serializer.data
+        return Response({"success": True,"count": paginator.count,"num_pages": paginator.num_pages,"current_page": page,"data": serializer.data
         }, status=status.HTTP_200_OK)
 
     def post(self, request):
         serializer = ProductSerializer(data=request.data)
+
         if serializer.is_valid():
             serializer.save()
-            return Response(
-                {"success": True, "message": "Product created successfully", "data": serializer.data},
-                status=status.HTTP_201_CREATED
-            )
-        return Response(
-            {"success": False, "error": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+
+            return Response({"success": True, "message": "Product created successfully", "data": serializer.data},status=status.HTTP_201_CREATED)
+        return Response({"success": False, "error": serializer.errors},status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request):
         product_id = request.data.get("product_id")
+
         try:
             product = Product.objects.get(product_id=product_id)
+
         except Product.DoesNotExist:
             return Response({"success": False, "error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = ProductSerializer(product, data=request.data)
+
         if serializer.is_valid():
             serializer.save()
+
             return Response({"success": True, "message": "Product updated", "data": serializer.data})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request):
         product_id = request.data.get("product_id")
+
         try:
             product = Product.objects.get(product_id=product_id)
         except Product.DoesNotExist:
@@ -167,7 +165,6 @@ class ProductAPIView(APIView):
             return Response({"success": False, "error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
-#bulk upload product function 
 
 class BulkUploadAPIView(APIView):
     permission_classes = [IsAdminUser]
@@ -175,16 +172,12 @@ class BulkUploadAPIView(APIView):
     def post(self, request):
         products, errors = [], []
 
-        # Accept either JSON array or CSV file
         if isinstance(request.data, list):
             rows = request.data
         else:
             file_csv = request.FILES.get("file")
             if not file_csv:
-                return Response(
-                    {"success": False, "error": "Provide JSON array or CSV file"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"success": False, "error": "Provide JSON array or CSV file"},status=status.HTTP_400_BAD_REQUEST)
             rows = csv.DictReader(file_csv.read().decode("utf-8").splitlines())
 
         for idx, row in enumerate(rows, start=1):
@@ -234,15 +227,143 @@ class BulkUploadAPIView(APIView):
                 product.save()
 
         return Response(
-            {
-                "success": True,
-                "message": "Bulk upload complete",
-                "products_uploaded": len(products),
+            {"success": True,"message": "Bulk upload complete","products_uploaded": len(products),
                 "medicines_uploaded": len([p for p in products if p.category.name.lower() == "medicine"])
             },
             status=status.HTTP_201_CREATED
         )
 
+
+
+class GRNListAPIView(APIView):
+    def get(self, request):
+        grn_type = request.query_params.get("grn_type")
+        qs = GRN.objects.all().prefetch_related("items")
+        if grn_type:
+            qs = qs.filter(grn_type=grn_type)
+
+        data = []
+        for grn in qs:
+            items = []
+            for item in grn.items.all():
+                items.append({
+                    "product_name": item.product_name,
+                    "batch_no": item.batch_no,
+                    "accepted_qty": item.accepted_qty,
+                    "mrp": str(item.mrp),
+                    "purchase_price": str(item.purchase_price),
+                })
+            data.append({
+                "grn_number": grn.grn_number,
+                "grn_type": grn.grn_type,
+                "vendor_name": grn.vendor_name,
+                "net_amount": str(grn.net_amount),
+                "tax_amount": str(grn.tax_amount),
+                "items": items,
+            })
+        return Response(data, status=status.HTTP_200_OK)
+
+
+
+class BulkGRNUploadAPIView(APIView):
+    @transaction.atomic
+    def post(self, request):
+        file_obj = request.FILES.get("file")
+        if not file_obj:
+            return Response({"error": "CSV file required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        csv_file = TextIOWrapper(file_obj.file, encoding="utf-8")
+        reader = csv.DictReader(csv_file)
+
+        items_data = []
+        for row in reader:
+            items_data.append({
+                "product_name": row["Product Name"],
+                "batch_no": row["Batch"],
+                "expiry_date": row["Exp"],
+                "accepted_qty": int(row["Qty"]),
+                "purchase_price": float(row["Rate"]),
+                "mrp": float(row["MRP"]),
+                "uom": row.get("Pack", ""),
+                "discount": float(row.get("Disc", 0)),
+                "gst_percent": float(row.get("GST%", 0)),
+                "amount": float(row["Amount"]),
+            })
+
+        grn_data = {
+            "grn_number": request.data.get("grn_number"),
+            "grn_type": request.data.get("grn_type", "Central"),
+            "status": request.data.get("status", "Full"),
+            "invoice_date": request.data.get("invoice_date"),
+            "vendor_name": request.data.get("vendor_name"),
+            "gst_no": request.data.get("gst_no"),
+            "net_amount": request.data.get("net_amount", 0),
+            "tax_amount": request.data.get("tax_amount", 0),
+            "request_id": request.data.get("request_id"),
+        }
+
+        grn = create_grn(grn_data, items_data)
+        return Response({"message": "GRN created", "grn_number": grn.grn_number}, status=status.HTTP_201_CREATED)
+
+
+
+class GRNView(APIView):
+    def get(self, request):
+        grn_number = request.query_params.get("grn_number")
+
+        if grn_number:
+
+            try:
+                grn = GRN.objects.get(grn_number=grn_number)
+                items = grn.items.all()
+
+                data = []
+                for item in items:
+                    po_item = PurchaseOrderItem.objects.filter( purchase_order=grn.purchase_order, product=item.product ).first()
+                    data.append({
+                        "id": item.id,
+                        "product_name": item.product.name if item.product else None,
+                        "brand_name": item.product.brand_name if item.product else None, 
+                        "uom": item.product.uom if item.product else None, 
+                        "qty": po_item.qty if po_item else None,
+                        "batch_no": item.batch_no,
+                        "accepted_qty": item.accepted_qty,
+                        "received_qty": item.received_qty,
+                        "damaged_qty": item.damaged_qty,
+                        "excess_qty": item.excess_qty,
+                        "rejected_qty": item.rejected_qty,
+                        "amount": str(item.amount),
+                        "mrp": str(item.mrp),
+                        "purchase_price": str(item.purchase_price),
+                        "discount": str(item.discount),
+                        "gst_perc": str(item.gst_percent),
+                        "margin": str(item.margin),
+                        "reason": item.reason,
+                        "mfg_date":item.manufacturing_date,
+                        "exp_date":item.expiry_date,
+
+                    })
+                    pass
+                return Response({"success":True,"data": data}, status=status.HTTP_200_OK)
+
+            except GRN.DoesNotExist:
+                return Response({"success":False,"error": "GRN not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        else:
+            grns = GRN.objects.all()
+            data = []
+            for grn in grns:
+                data.append({
+                    "grn_number": grn.grn_number,
+                    "category": getattr(grn.items.first().product.category, "name", None),
+                    "vendor": getattr(grn.purchase_order.vendor, "name", None),
+                    "purchase_number": grn.purchase_order.po_number,
+                    "created_at":timezone.localtime(grn.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
+                    "invoice_date": grn.invoice_date,
+                    "net_amount": str(grn.net_amount),
+                    "tax_amount": str(grn.tax_amount),
+                })
+            return Response({"success":True, "data": data} , status=status.HTTP_200_OK)
 
 
 
@@ -738,12 +859,18 @@ def update_indent(request):
 def UOMdropdown(request):
     data = list(UOM.objects.values_list("name", flat=True))
     return Response({"success": True, "data": data})
+
+
+@csrf_exempt
 @api_view(["GET"])
 def store_inventory(request, store_id):
     qs = ProductBatch.objects.filter(store_id=store_id)\
         .values("product__name")\
         .annotate(total_qty=Sum("stock"))
     return Response(qs)
+
+
+@csrf_exempt
 @api_view(["GET"])
 def central_inventory(request):
     central_store = Store.objects.get(is_central=True)
@@ -751,168 +878,14 @@ def central_inventory(request):
         .values("product__name")\
         .annotate(total_qty=Sum("stock"))
     return Response(qs)
+
+
 @csrf_exempt 
 @api_view(["GET"]) 
 def get_intent_list(request): 
     statuses = IndentStatus.objects.values_list("status", flat=True)
     return Response({"success": True, "statuses": list(statuses)}, status=status.HTTP_200_OK)
 
-
-
-
-class GRNListAPIView(APIView):
-    def get(self, request):
-        grn_type = request.query_params.get("grn_type")
-        qs = GRN.objects.all().prefetch_related("items")
-        if grn_type:
-            qs = qs.filter(grn_type=grn_type)
-
-        data = []
-        for grn in qs:
-            items = []
-            for item in grn.items.all():
-                items.append({
-                    "product_name": item.product_name,
-                    "batch_no": item.batch_no,
-                    "accepted_qty": item.accepted_qty,
-                    "mrp": str(item.mrp),
-                    "purchase_price": str(item.purchase_price),
-                })
-            data.append({
-                "grn_number": grn.grn_number,
-                "grn_type": grn.grn_type,
-                "vendor_name": grn.vendor_name,
-                "net_amount": str(grn.net_amount),
-                "tax_amount": str(grn.tax_amount),
-                "items": items,
-            })
-        return Response(data, status=status.HTTP_200_OK)
-
-
-class InventoryAPIView(APIView):
-    def get(self, request):
-        qs = ProductBatch.objects.values("product__name").annotate(total_qty=Sum("stock"))
-        return Response(list(qs), status=status.HTTP_200_OK)
-    
-
-
-class GRNCreateAPIView(APIView):
-    """
-    Create GRN manually without serializer
-    """
-    @transaction.atomic
-    def post(self, request):
-        try:
-            # Extract GRN header data
-            grn_data = {
-                "grn_number": request.data.get("grn_number"),
-                "grn_type": request.data.get("grn_type", "Central"),
-                "purchase_order_id": request.data.get("purchase_order_id"),
-                "status": request.data.get("status", "Full"),
-                "invoice_date": request.data.get("invoice_date"),
-                "vendor_name": request.data.get("vendor_name"),
-                "gst_no": request.data.get("gst_no"),
-                "net_amount": request.data.get("net_amount", 0),
-                "tax_amount": request.data.get("tax_amount", 0),
-                "request_id": request.data.get("request_id"),
-            }
-
-            grn = GRN.objects.create(**grn_data)
-
-            # Items come as list of dicts
-            items_data = request.data.get("items", [])
-            for item in items_data:
-                product = Product.objects.filter(name__iexact=item.get("product_name")).first()
-
-                grn_item = GRNItem.objects.create(
-                    grn=grn,
-                    product=product,
-                    product_name=item.get("product_name"),
-                    batch_no=item.get("batch_no"),
-                    expiry_date=item.get("expiry_date"),
-                    accepted_qty=item.get("accepted_qty", 0),
-                    received_qty=item.get("received_qty", item.get("accepted_qty", 0)),
-                    damaged_qty=item.get("damaged_qty", 0),
-                    expired_qty=item.get("expired_qty", 0),
-                    rejected_qty=item.get("rejected_qty", 0),
-                    purchase_price=item.get("purchase_price", 0),
-                    mrp=item.get("mrp", 0),
-                    uom=item.get("uom", ""),
-                    discount=item.get("discount", 0),
-                    gst_percent=item.get("gst_percent", 0),
-                    amount=item.get("amount", 0),
-                )
-
-                # Update ProductBatch stock
-                batch, created = ProductBatch.objects.get_or_create(
-                    product=product,
-                    batch_no=item.get("batch_no"),
-                    defaults={
-                        "expiry_date": item.get("expiry_date"),
-                        "mrp": item.get("mrp", 0),
-                        "purchase_price": item.get("purchase_price", 0),
-                        "uom": item.get("uom", ""),
-                        "stock": 0,
-                    }
-                )
-                batch.stock += item.get("accepted_qty", 0)
-                batch.save(update_fields=["stock"])
-
-            return Response({"message": "GRN created", "grn_number": grn.grn_number}, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-Request_key=[
-    "product_name", "pack", "manufacturer", "hsn",
-    "batch", "expiry", "mrp", "rate", "qty",
-    "gst_percent", "amount",""
-]
-
-def csv_to_json(file_obj):
-    csv_file = TextIOWrapper(file_obj.file, encoding="utf-8")
-    reader = csv.DictReader(csv_file)
-    return list(reader)
-
-class BulkGRNUploadAPIView(APIView):
-    @transaction.atomic
-    def post(self, request):
-        file_obj = request.FILES.get("file")
-        if not file_obj:
-            return Response({"error": "CSV file required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        csv_file = TextIOWrapper(file_obj.file, encoding="utf-8")
-        reader = csv.DictReader(csv_file)
-
-        items_data = []
-        for row in reader:
-            items_data.append({
-                "product_name": row["Product Name"],
-                "batch_no": row["Batch"],
-                "expiry_date": row["Exp"],
-                "accepted_qty": int(row["Qty"]),
-                "purchase_price": float(row["Rate"]),
-                "mrp": float(row["MRP"]),
-                "uom": row.get("Pack", ""),
-                "discount": float(row.get("Disc", 0)),
-                "gst_percent": float(row.get("GST%", 0)),
-                "amount": float(row["Amount"]),
-            })
-
-        grn_data = {
-            "grn_number": request.data.get("grn_number"),
-            "grn_type": request.data.get("grn_type", "Central"),
-            "status": request.data.get("status", "Full"),
-            "invoice_date": request.data.get("invoice_date"),
-            "vendor_name": request.data.get("vendor_name"),
-            "gst_no": request.data.get("gst_no"),
-            "net_amount": request.data.get("net_amount", 0),
-            "tax_amount": request.data.get("tax_amount", 0),
-            "request_id": request.data.get("request_id"),
-        }
-
-        grn = create_grn(grn_data, items_data)
-        return Response({"message": "GRN created", "grn_number": grn.grn_number}, status=status.HTTP_201_CREATED)
 
 
 
@@ -971,60 +944,20 @@ def create_grn(request):
 
 
 
-class GRNView(APIView):
-    def get(self, request):
-        grn_number = request.query_params.get("grn_number")
 
-        if grn_number:
 
-            try:
-                grn = GRN.objects.get(grn_number=grn_number)
-                items = grn.items.all()
+@api_view(["GET"])
+def get_stock(request):
+    product_id = request.query_params.get("product_id")
+    if not product_id:
+        return Response({"success": False, "error": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-                data = []
-                for item in items:
-                    po_item = PurchaseOrderItem.objects.filter( purchase_order=grn.purchase_order, product=item.product ).first()
-                    data.append({
-                        "id": item.id,
-                        "product_name": item.product.name if item.product else None,
-                        "brand_name": item.product.brand_name if item.product else None, 
-                        "uom": item.product.uom if item.product else None, 
-                        "qty": po_item.qty if po_item else None,
-                        "batch_no": item.batch_no,
-                        "accepted_qty": item.accepted_qty,
-                        "received_qty": item.received_qty,
-                        "damaged_qty": item.damaged_qty,
-                        "excess_qty": item.excess_qty,
-                        "rejected_qty": item.rejected_qty,
-                        "amount": str(item.amount),
-                        "mrp": str(item.mrp),
-                        "purchase_price": str(item.purchase_price),
-                        "discount": str(item.discount),
-                        "gst_perc": str(item.gst_percent),
-                        "margin": str(item.margin),
-                        "reason": item.reason,
-                        "mfg_date":item.manufacturing_date,
-                        "exp_date":item.expiry_date,
+    try:
+        product = Product.objects.get(product_id=product_id)
+    except Product.DoesNotExist:
+        return Response({"success": False, "error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
-                    })
-                    pass
-                return Response({"success":True,"data": data}, status=status.HTTP_200_OK)
+    batches = ProductBatch.objects.filter(product=product).values("batch_no","manufacturing_date","expiry_date","stock","uom")
 
-            except GRN.DoesNotExist:
-                return Response({"success":False,"error": "GRN not found"}, status=status.HTTP_404_NOT_FOUND)
+    return Response({"success": True, "data": list(batches)}, status=status.HTTP_200_OK)
 
-        else:
-            grns = GRN.objects.all()
-            data = []
-            for grn in grns:
-                data.append({
-                    "grn_number": grn.grn_number,
-                    "category": getattr(grn.items.first().product.category, "name", None),
-                    "vendor": getattr(grn.purchase_order.vendor, "name", None),
-                    "purchase_number": grn.purchase_order.po_number,
-                    "created_at":timezone.localtime(grn.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
-                    "invoice_date": grn.invoice_date,
-                    "net_amount": str(grn.net_amount),
-                    "tax_amount": str(grn.tax_amount),
-                })
-            return Response({"success":True, "data": data} , status=status.HTTP_200_OK)

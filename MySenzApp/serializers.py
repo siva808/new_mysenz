@@ -9,11 +9,11 @@ class TimestampMixin(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True, required=False)
 
+
 class AdminUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdminUser
         fields = ["id", "username", "email", "role", "is_active"]
-
 
 
 class StoreConfigSerializer(serializers.Serializer):
@@ -31,11 +31,11 @@ class StoreConfigSerializer(serializers.Serializer):
     managerContact = serializers.CharField()
 
 
-
 class StoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
         fields = ["id", "store_name", "store_contact", "store_address"]
+
 
 class StoreManagerSerializer(serializers.ModelSerializer):
     store = StoreSerializer(read_only=True)
@@ -44,6 +44,7 @@ class StoreManagerSerializer(serializers.ModelSerializer):
         model = StoreManager
         fields = ["id", "manager_name", "manager_contact", "manager_email", "store","is_active"]
         read_only_fields = ["created_at", "passcode"]
+
 
 class StoreManagerDetailSerializer(serializers.ModelSerializer):
     store = StoreSerializer(read_only=True)
@@ -59,8 +60,20 @@ class SubcategorySerilalizer(serializers.ModelSerializer):
     
     class Meta:
         model= SubCategory
-        fields =["id","category","category_name","name","is_active"]
+        fields =["id","category","category_name","name","discount","is_active"]
 
+
+class SubcategoryDetailSerilalizer(serializers.ModelSerializer):
+    
+    category_name = serializers.CharField(source="category.name", read_only=True)
+    discount =serializers.SerializerMethodField()
+    
+    class Meta:
+        model= SubCategory
+        fields =["id","category","category_name","name","discount","is_active"]
+
+    def get_discount(self, obj):
+         return f"{obj.discount.normalize()} %"
 
 
 class ServiceCategorySerializer(serializers.ModelSerializer):
@@ -72,7 +85,7 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
 class ServiceDetailsSerializer(serializers.ModelSerializer):
     category = ServiceCategorySerializer(read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
-        queryset=Category.objects.all(), write_only=True)
+    queryset=Category.objects.all(), write_only=True)
     subcategory = SubcategorySerilalizer(read_only=True) 
     subcategory_id = serializers.PrimaryKeyRelatedField( queryset=SubCategory.objects.all(), write_only=True)
 
@@ -94,6 +107,7 @@ class ServiceSerializer(serializers.ModelSerializer):
         model = Service
         fields = ["id","name", "description","price","category","show_in_ecom",
                   "home_care_enabled","instore_enabled","is_active","subcategory"]
+
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     class Meta:
@@ -123,18 +137,22 @@ class StoreManagerserviceSerializer(serializers.ModelSerializer):
         
 
 class StoreManagerServicesSerializer(serializers.ModelSerializer):
+
     category_name = serializers.CharField(source="category.name", read_only=True)
 
     class Meta:
         model = Mangerservices
         fields = ["id", "manager", "category", "category_name", "services_name", "is_active"]
+
+
 class StoreManagerServicesSerializerupdate(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name")
 
     class Meta:
         model = Mangerservices
         fields = ["id", "manager", "category", "category_name", "services_name", "is_active"]
-        
+
+
 class ManagerServicesSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
 
@@ -156,9 +174,6 @@ class ManagerCategoryServiceSerializer(serializers.ModelSerializer):
             for c in obj.categories.all()
             for s in obj.services.all()
         ]
-
-
-
 
 
 User = get_user_model()
@@ -201,6 +216,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError("No account with this email")
         return value
     
+
 class BookingSearchSerializer(serializers.ModelSerializer):
     customer_name=serializers.CharField(source="user.name",read_only=True)
     store_name = serializers.CharField(source="stor.store_name",read_only=True)
@@ -241,10 +257,12 @@ class BookingSerializer(serializers.ModelSerializer):
        
         return instance
     
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ["id","name","is_active"]
+
 
 class BookingGetSerializer(serializers.ModelSerializer):
     user = CustomerSerializer(read_only=True)
@@ -265,10 +283,12 @@ class Bookingupdateserializer(serializers.ModelSerializer):
         model =Booking
         fields=["category","service","appoinment_type","status","update_at"]
     
+
 class CustomerSerilaizer(serializers.ModelSerializer):
     class meta:
         model=Customer
         fields=["id","name","contact","address","create_at"]
+
 
 class BookingDetailsSerializer(serializers.ModelSerializer):
     customer=CustomerSerilaizer(read_only=True)
@@ -277,6 +297,7 @@ class BookingDetailsSerializer(serializers.ModelSerializer):
         fields = ["booking_id","service","category",""]
         read_only_field=["customer_name","customer_email"]
         
+
 class BookingDashboardSerializer(serializers.ModelSerializer):
     service_names = serializers.SerializerMethodField()
     customer_name = serializers.SerializerMethodField()
