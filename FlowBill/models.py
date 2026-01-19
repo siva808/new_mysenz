@@ -50,7 +50,6 @@ class Vendor(models.Model):
 class Product(models.Model):
     sub_category = models.ForeignKey(SubCategory, on_delete=models.CASCADE, related_name="products")
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
-    quantity = models.PositiveIntegerField(default=1) 
     product_id = models.CharField(max_length=20, unique=True, blank=True)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)   
@@ -122,7 +121,6 @@ class PurchaseOrder(models.Model):
         
 
 
-
 class PurchaseOrderItem(models.Model):
     purchase_order = models.ForeignKey(PurchaseOrder, related_name="items", on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
@@ -178,38 +176,6 @@ class IndentItem(models.Model):
     class Meta: 
         db_table = "indent_item"
 
-
-
-class Dispatch(models.Model):
-    dispatch_id = models.CharField(max_length=15,unique=True,blank=True)
-    indent = models.ForeignKey(Indent, on_delete=models.CASCADE,related_name="indent")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-
-    def save(self, *args, **kwargs): 
-        if not self.dispatch_id: 
-            super().save(*args, **kwargs) 
-            self.dispatch_id = f"GRN-WH-{self.id:07d}" 
-            super().save(update_fields=["dispatch_id"]) 
-        else: 
-            super().save(*args, **kwargs)
-    class Meta:
-        db_table = "dispatch"
-
-
-
-class DispatchItem(models.Model):
-    dispatch = models.ForeignKey(Dispatch,on_delete=models.CASCADE,related_name="dispatch")
-    product = models.ForeignKey(Product,on_delete=models.CASCADE)
-    qty = models.PositiveIntegerField() 
-    mrp = models.DecimalField(max_digits=10, decimal_places=2)
-    margin = models.DecimalField(max_digits=10, decimal_places=2, default=0) 
-    expiry_date = models.DateField() 
-    manufacturing_date = models.DateField()
-
-    class Meta:
-        db_table = "dispatchitem"
 
 
 
@@ -272,6 +238,7 @@ class GRNItem(models.Model):
     received_qty = models.IntegerField(blank=True, null=True)
     damaged_qty = models.IntegerField(blank=True, null=True)
     excess_qty = models.IntegerField(blank=True, null=True)
+    free_qty = models.IntegerField(blank=True, null=True)
     rejected_qty = models.IntegerField(default=0, blank=True, null=True)
 
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -343,6 +310,40 @@ class ProductBatch(models.Model):
         return f"{self.product.name} | Batch {self.batch_no} | Stock {self.stock}"
 
 
+
+class Dispatch(models.Model):
+    
+    dispatch_id = models.CharField(max_length=15,unique=True,blank=True)
+    indent = models.ForeignKey(Indent, on_delete=models.CASCADE,related_name="dispatches")
+    store = models.ForeignKey(Store, on_delete=models.CASCADE,related_name="dispatches")
+    status = models.CharField(max_length=20, default="dispatched")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+    def save(self, *args, **kwargs): 
+        if not self.dispatch_id: 
+            super().save(*args, **kwargs) 
+            self.dispatch_id = f"GRN-WH-{self.id:07d}" 
+            super().save(update_fields=["dispatch_id"]) 
+        else: 
+            super().save(*args, **kwargs)
+
+    class Meta:
+        db_table = "dispatch"
+        indexes = [ models.Index(fields=["store","status"])]
+
+
+class DispatchItem(models.Model):
+    
+    dispatch = models.ForeignKey(Dispatch,on_delete=models.CASCADE,related_name="items")
+    indent_item = models.ForeignKey(IndentItem, on_delete=models.CASCADE) 
+    product_batch = models.ForeignKey(ProductBatch, on_delete=models.CASCADE) 
+    quantity = models.PositiveIntegerField()
+
+    class Meta:
+        db_table = "dispatchitem"
 
 # class StoreGrn(models.Model):
 #     grn_number = models.CharField(max_length=50, unique=True)

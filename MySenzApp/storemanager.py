@@ -165,19 +165,25 @@ class CategoryAPIView(APIView):
         
 
 class ServiceAPIView(APIView):
-    def get(self, request):
-        category_name = request.query_params.get("name")
-        if category_name:
-            category = get_object_or_404(Service, name__iexact=category_name)
-            serializer = ServiceDetailsSerializer(category)
-            return Response({"success": True,"message": "Services retrieved successfully","data": serializer.data
-            }, status=status.HTTP_200_OK)
 
+    def get(self, request):
+        category_id = request.query_params.get("category_id")
+        subcategory = request.query_params.get("subcategory_id")
+
+        if category_id:
+            services = Service.objects.filter(category_id=category_id)
+            serializer = ServiceDetailsSerializer(services, many=True)
+
+            return Response({"success": True,"message": "Services retrieved successfully","data": serializer.data}, status=status.HTTP_200_OK)
+        
+        if subcategory:
+            services = Service.objects.filter(subcategory_id=subcategory)
+            serializer = ServiceDetailsSerializer(services, many=True)
+            return Response({"success": True,"message": "Services retrieved successfully","data": serializer.data}, status=status.HTTP_200_OK)
+        
         categories = Service.objects.all().order_by("id")
         serializer = ServiceDetailsSerializer(categories, many=True)
-        return Response({"success": True,"message": "All Services retrieved successfully",
-            "data": serializer.data
-        }, status=status.HTTP_200_OK)
+        return Response({"success": True,"message": "All Services retrieved successfully","data": serializer.data}, status=status.HTTP_200_OK)
 
     def post(self, request):
         serializer = ServiceCreateSerializer(data=request.data)
@@ -220,19 +226,19 @@ class ManagerServiceAPIView(APIView):
 
     def post(self, request):
         manager_id = request.data.get("manager")
-        category_name = request.data.get("category_name")
-        subcategory = request.data.get("subcategory_name")
+        category_id = request.data.get("category_id")
+        subcategory = request.data.get("subcategory_id")
         services_name = request.data.get("services_name", [])
 
-        if not manager_id or not category_name:
+        if not manager_id or not category_id:
             return Response({"success": False,"message": "manager and category_name are required"},status=status.HTTP_400_BAD_REQUEST)
 
         try:
             with transaction.atomic():
-                category = get_object_or_404(Category, name=category_name)
+                category = Category.objects.get(id=category_id)
 
-                obj, created = Mangerservices.objects.get_or_create(manager_id=manager_id,category=category,
-                                                                    subcategory=subcategory,defaults={"services_name": services_name})
+                obj, created = Mangerservices.objects.get_or_create( manager_id=manager_id, category=category, 
+                                                                     subcategory_id=subcategory, defaults={"services_name": services_name} )
 
                 if not created:
                     return Response({"success": False,"message": "Service already exists for this manager",}, status=status.HTTP_208_ALREADY_REPORTED)
@@ -355,24 +361,32 @@ def update_manager_services(request):
     try:
         manager_id = request.data.get("manager_id")     
         category_id = request.data.get("category_id")
+        subcategory_id = request.data.get("subcategory_id")
         services_name = request.data.get("services_name")
         is_active = request.data.get("is_active")
 
         if not manager_id or not category_id:
             return Response(
-                {"sucess":False,"error": "manager_id and category_id are required"},
+                {"success": False, "error": "manager_id and category_id are required"},
                 status=400
             )
 
         try:
             category = Category.objects.get(id=category_id)
         except Category.DoesNotExist:
-            return Response({"sucess":False,"error": "Category not found"})
+            return Response({"success": False, "error": "Category not found"}, status=404)
 
         try:
-            manager_service = Mangerservices.objects.get(manager_id=manager_id,category=category)
+            lookup = {
+                "manager_id": manager_id,
+                "category": category
+            }
+            if subcategory_id:
+                lookup["subcategory_id"] = subcategory_id
+
+            manager_service = Mangerservices.objects.get(**lookup)
         except Mangerservices.DoesNotExist:
-            return Response({"sucess":False,"error": "Manager service not found"})
+            return Response({"success": False, "error": "Manager service not found"}, status=404)
 
         if services_name is not None:
             manager_service.services_name = services_name
@@ -383,11 +397,13 @@ def update_manager_services(request):
         manager_service.save()
 
         return Response(
-            { "success": True,
+            {
+                "success": True,
                 "message": "Manager service updated successfully",
                 "data": {
                     "manager_id": manager_id,
                     "category": category_id,
+                    "subcategory_id": subcategory_id,
                     "services_name": manager_service.services_name,
                     "is_active": manager_service.is_active,
                 }
@@ -396,8 +412,7 @@ def update_manager_services(request):
         )
 
     except Exception as e:
-        return Response({"sucess":False,"error": str(e)}, status=500)
-   
+        return Response({"success": False, "error": str(e)}, status=500)
 
 
 @api_view(["POST"])

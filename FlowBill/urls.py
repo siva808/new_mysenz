@@ -17,6 +17,8 @@ urlpatterns = [
    path("update_indent/",update_indent,name="update_indent"),
    path("UOMdropdown/",UOMdropdown,name="UOMdropdown"),
    path("create-grn/", create_grn),
-   path("get_grn/",GRNView.as_view())
+   path("get_grn/",GRNView.as_view()),
+   path("get_product_stock/", product_stock_list),
+   path("dispatch_order/", DispatchAPIView.as_view()),
 
 ]

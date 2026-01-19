@@ -673,3 +673,46 @@ def bulk_upload_grn(file_obj, grn_data):
             errors.append(f"Row {idx}: {str(e)}")
 
     return {"grn": grn, "created_items": created_items, "errors": errors}
+
+
+
+
+
+from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
+
+@csrf_exempt
+@api_view(["GET"])
+def product_stock_list(request):
+    # Subquery for latest batch
+    latest_batch_qs = ProductBatch.objects.filter(product=OuterRef("pk")).order_by("-created_at")
+
+    products = (
+        Product.objects
+        .annotate(
+            total_stock=Coalesce(Sum("batches__stock"), 0),
+            latest_margin=Subquery(latest_batch_qs.values("margin_price")[:1]),
+            latest_mrp=Subquery(latest_batch_qs.values("mrp")[:1]),
+        )
+        .filter(total_stock__gt=0)
+        .distinct()
+    )
+
+    # Apply pagination
+    paginator = PageNumberPagination()
+    paginated_products = paginator.paginate_queryset(products, request)
+
+    data = [
+        {
+            "id": p.id,
+            "name": p.name,
+            "brand": p.brand_name,
+            "uom": p.uom,
+            "stock": p.total_stock,
+            "margin": p.latest_margin or 0,
+            "mrp": p.latest_mrp or 0,
+        }
+        for p in paginated_products
+    ]
+
+    return paginator.get_paginated_response(data)

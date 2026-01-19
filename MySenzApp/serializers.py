@@ -139,11 +139,11 @@ class StoreManagerserviceSerializer(serializers.ModelSerializer):
 class StoreManagerServicesSerializer(serializers.ModelSerializer):
 
     category_name = serializers.CharField(source="category.name", read_only=True)
+    subcategory_name = serializers.CharField(source="subcategory.name", read_only=True)
 
     class Meta:
         model = Mangerservices
-        fields = ["id", "manager", "category", "category_name", "services_name", "is_active"]
-
+        fields = ["id", "manager", "category", "category_name","subcategory","subcategory_name", "services_name", "is_active"]
 
 class StoreManagerServicesSerializerupdate(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name")

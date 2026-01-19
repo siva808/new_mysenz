@@ -332,6 +332,7 @@ class GRNView(APIView):
                         "damaged_qty": item.damaged_qty,
                         "excess_qty": item.excess_qty,
                         "rejected_qty": item.rejected_qty,
+                        "free_qty": item.free_qty,
                         "amount": str(item.amount),
                         "mrp": str(item.mrp),
                         "purchase_price": str(item.purchase_price),
@@ -366,8 +367,90 @@ class GRNView(APIView):
             return Response({"success":True, "data": data} , status=status.HTTP_200_OK)
 
 
+class DispatchAPIView(APIView):
+    
+    def get(self, request):
 
-@csrf_exempt
+        store_id = request.query_params.get("store_id")
+        qs = Dispatch.objects.select_related("store", "indent").prefetch_related("items__product_batch", "items__indent_item")
+        
+        if store_id:
+            qs = qs.filter(store_id=store_id)
+        data = [
+            {
+                "id": d.id, 
+                "store": d.store.name, 
+                "indent": d.indent.indent_number, 
+                "status": d.status, 
+                "items": [ { "product": di.product_batch.product.name, 
+                            "batch_no": di.product_batch.batch_no, 
+                            "quantity": di.quantity, } for di in d.items.all() ] 
+            } for d in qs
+        ]
+        qs = Dispatch.objects.select_related("store", "indent").prefetch_related("items__product_batch", "items__indent_item")
+        return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+    
+    @transaction.atomic
+    def post(self, request):
+        indent_id = request.data.get("indent_id")
+
+        try:
+            indent = Indent.objects.get(indent_number=indent_id)
+        except Indent.DoesNotExist:
+            return Response(
+                {"success": False, "error": f"Indent {indent_id} does not exist"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        for item in indent.items.all():
+            required_qty = item.quantity
+            total_available = (
+                ProductBatch.objects.filter(product=item.product, stock__gt=0)
+                .aggregate(total_stock=Sum("stock"))["total_stock"]
+                or 0
+            )
+            if required_qty > total_available:
+                return Response(
+                    {
+                        "success": False,
+                        "message": f"Not enough stock for product {item.product.name}. "
+                                f"Required {required_qty}, available {total_available}"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+    
+        dispatch = Dispatch.objects.create(store=indent.store, indent=indent, status="Dispatched")
+
+        #  Deduct stock and create DispatchItems
+        for item in indent.items.all():
+            required_qty = item.quantity
+            batches = ProductBatch.objects.filter(product=item.product, stock__gt=0).order_by("expiry_date")
+
+            for batch in batches:
+                if required_qty <= 0:
+                    break
+                available = batch.stock
+                take_qty = min(available, required_qty)
+
+                batch.stock -= take_qty
+                batch.save(update_fields=["stock"])
+
+                DispatchItem.objects.create(
+                    dispatch=dispatch,
+                    product_batch=batch,
+                    indent_item=item,
+                    quantity=take_qty
+                )
+
+                required_qty -= take_qty
+
+        return Response(
+            {"success": True, "message": "Dispatch created", "dispatch_id": dispatch.id},
+            status=status.HTTP_201_CREATED
+        )
+
+    
 @api_view(["POST"])
 def create_purchase_order(request):
     json_request = JSONParser().parse(request)
@@ -450,22 +533,33 @@ def create_purchase_order(request):
     return JsonResponse({"success": True, "message": "Purchase Order created successfully"}, status=201)
 
 
+
 @csrf_exempt
 @api_view(["POST"])
 def get_products(request):
     category_id = request.data.get("category_id")
-    if not category_id:
-        return JsonResponse({"success": False, "message": "category_id is required"},status=400)
+    subcategory_id = request.data.get("subcategory_id")
 
-    try:
-        category_id = int(category_id)
-    except ValueError:
-        return JsonResponse({"success": False, "message": "category_id must be an integer"},status=400)
-    
-    products = (Product.objects.filter(category_id=category_id).values(*[field.name for field in Product._meta.fields], "sub_category__name"))
+    if not category_id and not subcategory_id:
+        return JsonResponse({"success": False, "message": "Either category_id or subcategory_id is required"}, status=400)
+
+    products = Product.objects.all().values( *[field.name for field in Product._meta.fields], "sub_category__name" )
+
+    if category_id:
+        try:
+            category_id = int(category_id)
+            products = products.filter(category_id=category_id)
+        except (ValueError, TypeError):
+            return JsonResponse({"success": False, "message": "category_id must be an integer"}, status=400)
+
+    if subcategory_id:
+        try:
+            subcategory_id = int(subcategory_id)
+            products = products.filter(sub_category_id=subcategory_id)
+        except (ValueError, TypeError):
+            return JsonResponse({"success": False, "message": "subcategory_id must be an integer"}, status=400)
 
     return JsonResponse({"success": True, "data": list(products)}, status=200)
-
 
 
 
@@ -586,6 +680,7 @@ def get_po_details(request):
     return JsonResponse({"success": True, "purchase_order": po_data}, status=200)
 
 
+
 @csrf_exempt
 @api_view(["POST"])
 def po_update_status(request):
@@ -635,7 +730,7 @@ def create_indent(request):
     validated_items = []
     for item in items_data:
         prod_code = item.get("product_id")
-        qty = int(item.get("quantity", 0))
+        qty = int(item.get("qty", 0))
 
         if not prod_code or qty <= 0:
             return JsonResponse({"success": False, "message": "Each item must include product_id and valid quantity"}, status=400)
@@ -922,6 +1017,7 @@ def create_grn(request):
                 damaged_qty=item.get("damaged_qty", 0),
                 rejected_qty=item.get("rejected_qty", 0),
                 excess_qty = item.get("excess_qty",0),
+                free_qty = item.get("free_qty",0),
                 reason=item.get("reason"),
                 mrp=item.get("mrp"),
                 purchase_price=item.get("purchase_price"),
@@ -945,19 +1041,31 @@ def create_grn(request):
 
 
 
-
+@csrf_exempt
 @api_view(["GET"])
-def get_stock(request):
-    product_id = request.query_params.get("product_id")
-    if not product_id:
-        return Response({"success": False, "error": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+def product_stock_list(request):
 
-    try:
-        product = Product.objects.get(product_id=product_id)
-    except Product.DoesNotExist:
-        return Response({"success": False, "error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+    products = Product.objects.filter(batches__stock__gt=0).distinct()
+    data = []
 
-    batches = ProductBatch.objects.filter(product=product).values("batch_no","manufacturing_date","expiry_date","stock","uom")
+    for product in products:
+        total_stock = product.batches.aggregate(
+            total_stock=Sum("stock")
+        )["total_stock"] or 0
 
-    return Response({"success": True, "data": list(batches)}, status=status.HTTP_200_OK)
+        if total_stock <= 0:
+            continue
 
+        latest_batch = product.batches.order_by("-created_at").first()
+
+        data.append({
+            "id": product.product_id,
+            "name": product.name,
+            "brand": product.brand_name,
+            "uom": product.uom,
+            "stock": total_stock,
+            "margin": latest_batch.margin_price if latest_batch else 0,
+            "mrp": latest_batch.mrp if latest_batch else 0,
+        })
+
+    return JsonResponse(data, safe=False)
