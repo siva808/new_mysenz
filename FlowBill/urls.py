@@ -20,5 +20,6 @@ urlpatterns = [
    path("get_grn/",GRNView.as_view()),
    path("get_product_stock/", product_stock_list),
    path("dispatch_order/", DispatchAPIView.as_view()),
+   path("recipe-view/", RecipeAPIView.as_view()),
 
 ]

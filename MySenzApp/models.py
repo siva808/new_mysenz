@@ -4,6 +4,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields import ArrayField
 
+
 class AdminUserManager(BaseUserManager):
     def create_user(self, email, password=None, role="customer", **extra_fields):
 
@@ -87,6 +88,46 @@ class Store(models.Model):
         db_table="store"
 
 
+class StorePartner(models.Model):
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="partners")
+    partner_name = models.CharField(max_length=150)
+    partner_contact = models.CharField(max_length=20)
+    partner_email = models.EmailField()
+    company_name = models.CharField(max_length=150, blank=True, null=True)
+    gst = models.CharField(max_length=15, blank=True, null=True)
+    company_email = models.EmailField(blank=True, null=True)
+
+    llp_file = models.FileField(upload_to="store/partners/llp/", blank=True, null=True)
+    pvtl_registration_file = models.FileField(upload_to="store/partners/pvtl/", blank=True, null=True)
+    firm_document = models.FileField(upload_to="store/partners/firm/", blank=True, null=True)
+    franchise_agreement = models.FileField(upload_to="store/partners/franchise/", blank=True, null=True)
+
+    share_percentage = models.DecimalField(max_digits=5, decimal_places=2, help_text="Percentage of shares")
+
+    bank_name = models.CharField(max_length=100)
+    branch_name = models.CharField(max_length=100, blank=True, null=True)
+    bank_state = models.CharField(max_length=50, blank=True, null=True)
+    account_holder_name = models.CharField(max_length=100)
+    account_number = models.CharField(max_length=30)
+    ifsc_code = models.CharField(max_length=11)
+    pan_number = models.CharField(max_length=10, blank=True, null=True)
+    bank_address = models.TextField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.partner_name} - {self.store.store_name}"
+
+    class Meta:
+
+        db_table = "storepartner"
+
+        indexes = [
+            models.Index(fields=[ "store","partner_name"]),
+        ]
+
+
 
 class Category(models.Model):
     name = models.CharField(max_length=100,unique=True)
@@ -129,6 +170,17 @@ class Service(models.Model):
         return self.name
     class Meta:
         db_table="services"
+
+
+class Storeservices(models.Model):
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="services")
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    subcategory = models.ForeignKey(SubCategory,on_delete=models.CASCADE)
+    services_name = ArrayField(models.CharField(max_length=150), default=list)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table="Storeservices"
 
 
 
@@ -190,7 +242,8 @@ class StoreManager(models.Model):
     manager_contact = models.CharField(max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    passcode = models.CharField(max_length=10, default=generate_passcode) 
+    passcode = models.CharField(max_length=10, default=generate_passcode)
+
     def __str__(self):
         return f"{self.manager_name} ({self.user.email})"
     class Meta:
@@ -198,14 +251,7 @@ class StoreManager(models.Model):
 
 
 
-class Mangerservices(models.Model):
-    manager = models.ForeignKey(StoreManager, on_delete=models.CASCADE, related_name="services")
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    subcategory = models.ForeignKey(SubCategory,on_delete=models.CASCADE)
-    services_name = ArrayField(models.CharField(max_length=150), default=list)
-    is_active = models.BooleanField(default=True)
-    class Meta:
-        db_table="managerservices"
+
     
 
 

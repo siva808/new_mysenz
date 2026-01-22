@@ -379,15 +379,22 @@ class DispatchAPIView(APIView):
         data = [
             {
                 "id": d.id, 
-                "store": d.store.name, 
+                "store": d.store.store_name,
+                "dispatch_id":d.dispatch_id, 
+                "created_at": timezone.localtime(d.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
                 "indent": d.indent.indent_number, 
                 "status": d.status, 
-                "items": [ { "product": di.product_batch.product.name, 
+                "items": [ { "product": di.product_batch.product.name,
+                            "product_id": di.product_batch.product.id,
+                            "brand_name": di.product_batch.product.brand_name,
+                            "uom": di.product_batch.product.uom,
+                            "exp_date": di.product_batch.expiry_date,
                             "batch_no": di.product_batch.batch_no, 
+                            "margin":di.product_batch.margin_price,
+                            "mrp":di.product_batch.mrp,
                             "quantity": di.quantity, } for di in d.items.all() ] 
             } for d in qs
         ]
-        qs = Dispatch.objects.select_related("store", "indent").prefetch_related("items__product_batch", "items__indent_item")
         return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
     
     @transaction.atomic
@@ -450,7 +457,57 @@ class DispatchAPIView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+
+
+class RecipeAPIView(APIView):
+
+    def post(self,request):
+        serializer = RecipeSerializer(data=request.data)
+
+        if serializer.is_valid():
+            recipe = serializer.save()
+            return Response({"success":True,"message":"Recipe created","recipe_id":recipe.recipe_id},status=status.HTTP_201_CREATED)
+        return Response({"success":False,"error":serializer.errors},status=status.HTTP_400_BAD_REQUEST)
     
+    
+    def put(self,request):
+        recipe_id = request.data.get("recipe_id")
+        item = request.data.get("iterm",[])
+        old_recipe = Recipe.objects.get(recipe_id=recipe_id)
+
+        with transaction.atomic():
+            new_version = old_recipe.version + 1
+            new_recipe = Recipe.objects.create(recipe_id=old_recipe.recipe_id, service=old_recipe.service, version=new_version)
+
+            for item in  old_recipe.iterms.all():
+                Recipeiterm.objects.create(
+                    recipe=new_recipe,
+                    product=item.product,
+                    quantity=item.quantity
+                )
+            for upd in item:
+                Recipeiterm.objects.create(
+                    recipe = new_recipe,
+                    product_id = upd.get("product"),
+                    defaults = {"quantity": upd.get("quantity")}
+                )
+        return Response({"success":True,"message":"Recipe updated","recipe_id":new_recipe.recipe_id},status=status.HTTP_200_OK)
+    
+    def get(self,request):
+        recipe_id = request.query_params.get("recipe_id")
+        if recipe_id:
+            try:
+                recipe = Recipe.objects.get(recipe_id=recipe_id)
+                serializer = RecipeSerializer(recipe)
+                return Response({"success":True,"data":serializer.data},status=status.HTTP_200_OK)
+            except Recipe.DoesNotExist:
+                return Response({"success":False,"error":"Recipe not found"},status=status.HTTP_404_NOT_FOUND)
+        else:
+            recipes = Recipe.objects.all()
+            serializer = RecipeSerializer(recipes,many=True)
+            return Response({"success":True,"data":serializer.data},status=status.HTTP_200_OK)
+
+
 @api_view(["POST"])
 def create_purchase_order(request):
     json_request = JSONParser().parse(request)
@@ -649,7 +706,6 @@ def get_po_details(request):
             "product_id": obj.product_id,
             "name": obj.name,
             "description": obj.description,
-            "quantity": obj.quantity,
             "brand_name": obj.brand_name,
             "molecule": obj.molecule,
             "uom": obj.uom,
@@ -1059,13 +1115,13 @@ def product_stock_list(request):
         latest_batch = product.batches.order_by("-created_at").first()
 
         data.append({
-            "id": product.product_id,
+            "product_id": product.product_id,
             "name": product.name,
-            "brand": product.brand_name,
+            "brand_name": product.brand_name,
             "uom": product.uom,
             "stock": total_stock,
             "margin": latest_batch.margin_price if latest_batch else 0,
             "mrp": latest_batch.mrp if latest_batch else 0,
         })
 
-    return JsonResponse(data, safe=False)
+    return JsonResponse({"success":True,"data":data},safe=False)

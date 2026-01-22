@@ -112,3 +112,25 @@ class IndentSerializer(serializers.ModelSerializer):
 
 
 
+
+
+class RecipeItermSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Recipeiterm
+        fields = ["recipe","product","quantity"]
+
+class RecipeSerializer(serializers.ModelSerializer):
+    items = RecipeItermSerializer(many=True)
+
+    class Meta:
+        model = Recipe
+        fields = ["recipe_id","service","items","version","created_at","updated_at"]
+        read_only_fields = ["recipe_id"]
+
+    @transaction.atomic
+    def create(self, validated_data):
+        items_data = validated_data.pop("items")
+        recipe = Recipe.objects.create(**validated_data)
+        for item_data in items_data:
+            Recipeiterm.objects.create(recipe=recipe, **item_data)
+        return recipe   

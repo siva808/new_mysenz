@@ -17,6 +17,7 @@ from .serializers import *
 
 token_generator = PasswordResetTokenGenerator()
 
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def admin_login(request):
@@ -176,6 +177,7 @@ def bookingdropdown(request):
     data = list(BookingStatus.objects.values_list("status", flat=True))
     return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
 
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def paymentdropdown(request):
@@ -209,10 +211,12 @@ class StoreManagerPasscodeResetView(generics.UpdateAPIView):
         )
 
 
+
 class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = ServiceCategorySerializer
     permission_classes = [permissions.AllowAny]
+
 
 
 class ServiceListView(generics.ListAPIView):
@@ -229,6 +233,7 @@ class ServiceListView(generics.ListAPIView):
         return queryset
     
 
+
 class TimeSlotListView(generics.ListAPIView):
     serializer_class = TimeSlotSerializer
     permission_classes = [permissions.AllowAny]
@@ -243,6 +248,7 @@ class TimeSlotListView(generics.ListAPIView):
             queryset = queryset.filter(store_id=store_id)
 
         return queryset
+
 
 
 class IsAdminOrStaff(permissions.BasePermission):
@@ -320,6 +326,64 @@ class SubcategoryAPIView(APIView):
                 "message": f"Error updating SubCategory: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
+class storepartner(APIView):
+
+    def post(self, request):
+        serializer = StorePartnerSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"success": True,"message": "Store Partner created successfully",})
+        return Response({"success": False,"message": "Validation failed","errors": serializer.errors})
+    
+    def get(self, request):
+        store_id = request.query_params.get("store_id")
+
+        if store_id:
+            store_id_uuid = uuid.UUID(store_id)
+            store_partners = StorePartner.objects.filter(store__id=store_id_uuid)
+            serializer = StorePartnerSerializer(store_partners, many=True)
+            return Response({"success": True,"message": "Store Partners retrieved successfully","data": serializer.data})
+        
+        store_partners = StorePartner.objects.all()
+        serializer = StorePartnerSerializer(store_partners, many=True)
+        return Response({"success": True,"message": "Store Partners retrieved successfully","data": serializer.data})
+    
+
+    def put(self, request):
+        partners_data = request.data.get("id")
+
+        if not partners_data:
+            return Response({"success": False, "message": "id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        store_partner = StorePartner.objects.filter(pk=partners_data).first()
+        if not store_partner:
+            return Response({"success": False, "message": "Store Partner not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = StorePartnerSerializer(store_partner, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"success": True,"message": "Store Partner updated successfully","data": serializer.data}, status=status.HTTP_200_OK)
+
+        return Response({"success": False,"message": "Validation failed","errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request):
+        partner_id = request.data.get("id")
+
+        if not partner_id:
+            return Response({"success": False, "message": "id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        store_partner = StorePartner.objects.filter(pk=partner_id).first()
+        if not store_partner:
+            return Response({"success": False, "message": "Store Partner not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        store_partner.delete()
+        return Response({"success": True, "message": "Store Partner deleted successfully"}, status=status.HTTP_200_OK)
+
+    
+
+    
 # class AdminNotificationLogListView(generics.ListAPIView):
 #     serializer_class = NotificationLogSerializer
 #     permission_classes = [IsAdminOrStaff]

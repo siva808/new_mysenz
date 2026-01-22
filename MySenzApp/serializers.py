@@ -40,11 +40,15 @@ class StoreSerializer(serializers.ModelSerializer):
 class StoreManagerSerializer(serializers.ModelSerializer):
     store = StoreSerializer(read_only=True)
     manager_email = serializers.EmailField(source="user.email", read_only=True)
+   
+
     class Meta:
         model = StoreManager
         fields = ["id", "manager_name", "manager_contact", "manager_email", "store","is_active"]
-        read_only_fields = ["created_at", "passcode"]
 
+        read_only_fields = ["created_at", "passcode"]
+    def update(self, instance, validated_data):
+        return super().update(instance, validated_data)
 
 class StoreManagerDetailSerializer(serializers.ModelSerializer):
     store = StoreSerializer(read_only=True)
@@ -142,22 +146,22 @@ class StoreManagerServicesSerializer(serializers.ModelSerializer):
     subcategory_name = serializers.CharField(source="subcategory.name", read_only=True)
 
     class Meta:
-        model = Mangerservices
-        fields = ["id", "manager", "category", "category_name","subcategory","subcategory_name", "services_name", "is_active"]
+        model = Storeservices
+        fields = ["id", "store", "category", "category_name","subcategory","subcategory_name", "services_name", "is_active"]
 
 class StoreManagerServicesSerializerupdate(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name")
 
     class Meta:
-        model = Mangerservices
-        fields = ["id", "manager", "category", "category_name", "services_name", "is_active"]
+        model = Storeservices
+        fields = ["id", "store", "category", "category_name", "services_name", "is_active"]
 
 
 class ManagerServicesSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
 
     class Meta:
-        model = Mangerservices
+        model = Storeservices
         fields = ["category_name", "services_name", "is_active"]
 
     
@@ -347,3 +351,9 @@ class BookingDashboardSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["booking_id", "booking_date"]
 
+
+
+class StorePartnerSerializer(serializers.ModelSerializer):
+    class Meta: 
+        model = StorePartner 
+        fields = "__all__"

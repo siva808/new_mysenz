@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField, JSONField
 import uuid
-from MySenzApp.models import Category,Store,SubCategory
+from MySenzApp.models import Category,Store,SubCategory,Service
 from decimal import Decimal 
 
 
@@ -344,6 +344,43 @@ class DispatchItem(models.Model):
 
     class Meta:
         db_table = "dispatchitem"
+
+
+class Recipe(models.Model):
+    recipe_id = models.CharField(max_length=20, unique=True, blank=True)
+    service = models.ForeignKey(Service, on_delete=models.CASCADE)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "recipe"
+
+        indexes = [
+            models.Index(fields=["service", "version"]),
+        ]
+    def save(self, *args, **kwargs):
+        if not self.recipe_id:
+            super().save(*args, **kwargs)
+            self.recipe_id = f"RCP-{self.id:05d}"
+            super().save(update_fields=["recipe_id"])
+        else:
+            super().save(*args, **kwargs)
+
+class Recipeiterm(models.Model):
+    recipe = models.ForeignKey(Recipe, related_name="items", on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+
+    class Meta:
+        db_table = "recipeitem"
+        indexes = [
+            models.Index(fields=["recipe","product"]),
+        ]
+
+
+
+
 
 # class StoreGrn(models.Model):
 #     grn_number = models.CharField(max_length=50, unique=True)
