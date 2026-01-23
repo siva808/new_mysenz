@@ -37,6 +37,7 @@ def admin_login(request):
         if hasattr(user, "store_manager"):
             username = user.store_manager.manager_name
             manager_id = str(user.store_manager.id)
+           
 
             if hasattr(user.store_manager, "store") and user.store_manager.store:
                 store_id = str(user.store_manager.store.id)

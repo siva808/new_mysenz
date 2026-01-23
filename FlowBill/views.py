@@ -469,43 +469,88 @@ class RecipeAPIView(APIView):
             return Response({"success":True,"message":"Recipe created","recipe_id":recipe.recipe_id},status=status.HTTP_201_CREATED)
         return Response({"success":False,"error":serializer.errors},status=status.HTTP_400_BAD_REQUEST)
     
-    
-    def put(self,request):
-        recipe_id = request.data.get("recipe_id")
-        item = request.data.get("iterm",[])
-        old_recipe = Recipe.objects.get(recipe_id=recipe_id)
-
-        with transaction.atomic():
-            new_version = old_recipe.version + 1
-            new_recipe = Recipe.objects.create(recipe_id=old_recipe.recipe_id, service=old_recipe.service, version=new_version)
-
-            for item in  old_recipe.iterms.all():
-                Recipeiterm.objects.create(
-                    recipe=new_recipe,
-                    product=item.product,
-                    quantity=item.quantity
-                )
-            for upd in item:
-                Recipeiterm.objects.create(
-                    recipe = new_recipe,
-                    product_id = upd.get("product"),
-                    defaults = {"quantity": upd.get("quantity")}
-                )
-        return Response({"success":True,"message":"Recipe updated","recipe_id":new_recipe.recipe_id},status=status.HTTP_200_OK)
-    
     def get(self,request):
-        recipe_id = request.query_params.get("recipe_id")
+        recipe_id = request.query_params.get("id")
+        
         if recipe_id:
-            try:
-                recipe = Recipe.objects.get(recipe_id=recipe_id)
-                serializer = RecipeSerializer(recipe)
-                return Response({"success":True,"data":serializer.data},status=status.HTTP_200_OK)
-            except Recipe.DoesNotExist:
-                return Response({"success":False,"error":"Recipe not found"},status=status.HTTP_404_NOT_FOUND)
+               recipe = Recipe.objects.select_related("service").prefetch_related("items__product").get(id=recipe_id) 
+               data = { "id": recipe.id, "recipe_id": recipe.recipe_id, "service": recipe.service.name, "version": f"v{recipe.version}", "created_at": timezone.localtime(recipe.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"), 
+                       "items": [ { "id": item.id, 
+                                   "product": item.product.name, 
+                                   "uom": item.product.uom,
+                                   "quantity": item.quantity, } for item in recipe.items.all() ], } 
+               return Response({"success": True, "data": data}, status=status.HTTP_200_OK) 
         else:
             recipes = Recipe.objects.all()
-            serializer = RecipeSerializer(recipes,many=True)
-            return Response({"success":True,"data":serializer.data},status=status.HTTP_200_OK)
+            data = []
+            for recipe in recipes:
+                data.append({
+                    "id": recipe.id,
+                    "recipe_id": recipe.recipe_id,
+                    "service": recipe.service.name,
+                    "version": f"v{recipe.version}",
+                    "created_at": timezone.localtime(recipe.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
+                })
+            return Response({"success":True,"data":data},status=status.HTTP_200_OK)   
+
+
+
+class GRNReturnAPIView(APIView):
+    @transaction.atomic
+    def post(self, request):
+        grn_number = request.data.get("grn_number")
+        items_data = request.data.get("items", [])
+
+        try:
+            grn = GRN.objects.get(grn_number=grn_number)
+        except GRN.DoesNotExist:
+            return Response({"success": False, "error": f"GRN {grn_number} does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        for item in items_data:
+            batch_no = item.get("batch_no")
+            return_qty = int(item.get("return_qty", 0))
+
+            try:
+                grn_item = grn.items.get(batch_no=batch_no)
+            except GRNItem.DoesNotExist:
+                return Response({"success": False, "error": f"Batch {batch_no} not found in GRN {grn_number}"}, status=status.HTTP_404_NOT_FOUND)
+
+            if return_qty > grn_item.accepted_qty:
+                return Response({"success": False, "error": f"Return quantity exceeds accepted quantity for batch {batch_no}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            grn_item.returned_qty = F('returned_qty') + return_qty
+            grn_item.save(update_fields=['returned_qty'])
+
+            # Update stock in ProductBatch
+            product_batch = grn_item.product_batch
+            product_batch.stock = F('stock') - return_qty
+            product_batch.save(update_fields=['stock'])
+
+        return Response({"success": True, "message": "GRN return processed successfully"}, status=status.HTTP_200_OK)
+    
+
+    def get(self, request):
+        grn_number = request.query_params.get("grn_number")
+
+        if not grn_number:
+            return Response({"success": False, "error": "grn_number parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            grn = GRN.objects.get(grn_number=grn_number)
+        except GRN.DoesNotExist:
+            return Response({"success": False, "error": f"GRN {grn_number} does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        data = []
+        for item in grn.items.all():
+            data.append({
+                "batch_no": item.batch_no,
+                "accepted_qty": item.accepted_qty,
+                "returned_qty": item.returned_qty,
+            })
+
+        return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
+
 
 
 @api_view(["POST"])
@@ -596,6 +641,7 @@ def create_purchase_order(request):
 def get_products(request):
     category_id = request.data.get("category_id")
     subcategory_id = request.data.get("subcategory_id")
+
 
     if not category_id and not subcategory_id:
         return JsonResponse({"success": False, "message": "Either category_id or subcategory_id is required"}, status=400)
@@ -1100,7 +1146,6 @@ def create_grn(request):
 @csrf_exempt
 @api_view(["GET"])
 def product_stock_list(request):
-
     products = Product.objects.filter(batches__stock__gt=0).distinct()
     data = []
 
@@ -1125,3 +1170,55 @@ def product_stock_list(request):
         })
 
     return JsonResponse({"success":True,"data":data},safe=False)
+
+
+from django.db.models import Max
+
+@api_view(["POST"])
+def create_recipe_version(request):
+    recipe_id = request.data.get("recipe_id")
+    items_data = request.data.get("items", [])
+
+    if not recipe_id or not items_data:
+        return Response(
+            {"success": False, "message": "recipe_id and items are required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        recipe = Recipe.objects.get(recipe_id=recipe_id)
+    except Recipe.DoesNotExist:
+        return Response(
+            {"success": False, "message": f"Recipe with id {recipe_id} does not exist"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    last_version = (
+        Recipeiterm.objects
+        .filter(recipe=recipe)
+        .aggregate(Max("version"))["version__max"] or 0
+    )
+
+    created_versions = []
+
+    with transaction.atomic():
+        for item in items_data:
+            last_version += 1  # 🔥 version increments PER ITEM
+
+            Recipeiterm.objects.create(
+                recipe=recipe,        # ✅ FK object
+                version=last_version,
+                **item
+            )
+
+            created_versions.append(last_version)
+
+    return Response(
+        {
+            "success": True,
+            "message": "Recipe updated successfully",
+            "recipe_id": recipe.recipe_id,
+            "versions_created": created_versions
+        },
+        status=status.HTTP_201_CREATED
+    )

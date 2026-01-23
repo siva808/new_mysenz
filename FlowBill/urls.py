@@ -21,5 +21,6 @@ urlpatterns = [
    path("get_product_stock/", product_stock_list),
    path("dispatch_order/", DispatchAPIView.as_view()),
    path("recipe-view/", RecipeAPIView.as_view()),
+   path("create_recipe_version/", create_recipe_version),
 
 ]

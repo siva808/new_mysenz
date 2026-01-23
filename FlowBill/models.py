@@ -346,10 +346,10 @@ class DispatchItem(models.Model):
         db_table = "dispatchitem"
 
 
+
 class Recipe(models.Model):
     recipe_id = models.CharField(max_length=20, unique=True, blank=True)
     service = models.ForeignKey(Service, on_delete=models.CASCADE)
-    version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -357,7 +357,7 @@ class Recipe(models.Model):
         db_table = "recipe"
 
         indexes = [
-            models.Index(fields=["service", "version"]),
+            models.Index(fields=["service"]),
         ]
     def save(self, *args, **kwargs):
         if not self.recipe_id:
@@ -367,17 +367,94 @@ class Recipe(models.Model):
         else:
             super().save(*args, **kwargs)
 
+
+
 class Recipeiterm(models.Model):
     recipe = models.ForeignKey(Recipe, related_name="items", on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    version = models.PositiveIntegerField(default=1)
     quantity = models.PositiveIntegerField()
 
     class Meta:
         db_table = "recipeitem"
         indexes = [
-            models.Index(fields=["recipe","product"]),
+            models.Index(fields=["recipe","product","version"]),
         ]
 
+
+
+class GRNReturn(models.Model):
+    grn_return_number = models.CharField(max_length=50, unique=True)
+    grn = models.ForeignKey(GRN, on_delete=models.CASCADE, related_name="returns")
+    status = models.CharField(max_length=20, default="initiated")  
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "grn_return"
+        indexes = [
+            models.Index(fields=["grn", "status"]),
+        ]
+
+    def __str__(self):
+        return self.grn_return_number
+
+    def save(self, *args, **kwargs):
+        if not self.grn_return_number:
+            super().save(*args, **kwargs)
+            self.grn_return_number = f"GRN-RET-{self.id:07d}"
+            super().save(update_fields=["grn_return_number"])
+        else:
+            super().save(*args, **kwargs)
+
+class GRNReturnItem(models.Model):
+    grn_return = models.ForeignKey(GRNReturn, on_delete=models.CASCADE, related_name="items")
+    grn_item = models.ForeignKey(GRNItem, on_delete=models.CASCADE)
+    return_quantity = models.PositiveIntegerField()
+    reason = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = "grn_return_item"
+        indexes = [
+            models.Index(fields=["grn_return", "grn_item"]),
+        ]
+
+
+# class InedentReturn(models.Model):
+#     indent_return_number = models.CharField(max_length=50, unique=True)
+#     indent = models.ForeignKey(Indent, on_delete=models.CASCADE, related_name="returns")
+#     status = models.CharField(max_length=20, default="initiated")  
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+#     class Meta:
+#         db_table = "indent_return"
+#         indexes = [
+#             models.Index(fields=["indent", "status"]),
+#         ]
+
+#     def __str__(self):
+#         return self.indent_return_number
+
+#     def save(self, *args, **kwargs):
+#         if not self.indent_return_number:
+#             super().save(*args, **kwargs)
+#             self.indent_return_number = f"IND-RET-{self.id:07d}"
+#             super().save(update_fields=["indent_return_number"])
+#         else:
+#             super().save(*args, **kwargs)
+
+# class IndentReturnItem(models.Model):
+#     indent_return = models.ForeignKey(InedentReturn, on_delete=models.CASCADE, related_name="items")
+#     indent_item = models.ForeignKey(IndentItem, on_delete=models.CASCADE)
+#     return_quantity = models.PositiveIntegerField()
+#     reason = models.CharField(max_length=255)
+
+#     class Meta:
+#         db_table = "indent_return_item"
+#         indexes = [
+#             models.Index(fields=["indent_return", "indent_item"]),
+#         ]
 
 
 
