@@ -1,3 +1,4 @@
+from collections import defaultdict
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -58,12 +59,12 @@ class VendorAPIView(APIView):
         category_id = request.query_params.get("category_id")
 
         if category_id: 
-            queryset = Vendor.objects.filter(category__id=category_id, is_active=True) 
+            queryset = Vendor.objects.filter(category__id=category_id) 
             vendor = queryset.values("id","name")
 
             return Response({"success": True, "data": list(vendor)})
         else: 
-            queryset = Vendor.objects.filter(is_active=True) 
+            queryset = Vendor.objects.filter() 
 
         serializer = VendorSerializer(queryset, many=True)
 
@@ -451,6 +452,8 @@ class DispatchAPIView(APIView):
                 )
 
                 required_qty -= take_qty
+        indent.status = "Dispatched"
+        indent.save(update_fields=["status"])
 
         return Response(
             {"success": True, "message": "Dispatch created", "dispatch_id": dispatch.id},
@@ -473,13 +476,18 @@ class RecipeAPIView(APIView):
         recipe_id = request.query_params.get("id")
         
         if recipe_id:
-               recipe = Recipe.objects.select_related("service").prefetch_related("items__product").get(id=recipe_id) 
-               data = { "id": recipe.id, "recipe_id": recipe.recipe_id, "service": recipe.service.name, "version": f"v{recipe.version}", "created_at": timezone.localtime(recipe.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"), 
-                       "items": [ { "id": item.id, 
-                                   "product": item.product.name, 
-                                   "uom": item.product.uom,
-                                   "quantity": item.quantity, } for item in recipe.items.all() ], } 
-               return Response({"success": True, "data": data}, status=status.HTTP_200_OK) 
+            recipe = Recipe.objects.select_related("service").prefetch_related("items__product").get(id=recipe_id)
+
+            grouped = defaultdict(list) 
+            
+            for item in recipe.items.all().order_by("-version"): 
+                grouped[f"v{item.version}"].append({ "id": item.id,"product":item.product.id, "product_name": item.product.name, "uom": item.product.uom, "quantity": item.quantity, })
+            data = { "id": recipe.id, 
+                    "recipe_id": recipe.recipe_id, 
+                    "service": recipe.service.name,"category_id": recipe.service.category.id if recipe.service and recipe.service.category else None, 
+                    "created_at": timezone.localtime(recipe.created_at).strftime("%Y-%m-%d %H:%M:%S"), 
+                    "items": grouped,  }
+            return Response({"success": True, "data": data}, status=status.HTTP_200_OK) 
         else:
             recipes = Recipe.objects.all()
             data = []
@@ -488,7 +496,7 @@ class RecipeAPIView(APIView):
                     "id": recipe.id,
                     "recipe_id": recipe.recipe_id,
                     "service": recipe.service.name,
-                    "version": f"v{recipe.version}",
+                    
                     "created_at": timezone.localtime(recipe.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
                 })
             return Response({"success":True,"data":data},status=status.HTTP_200_OK)   
@@ -831,14 +839,14 @@ def create_indent(request):
 
     validated_items = []
     for item in items_data:
-        prod_code = item.get("product_id")
+        prod_code = item.get("id")
         qty = int(item.get("qty", 0))
 
         if not prod_code or qty <= 0:
             return JsonResponse({"success": False, "message": "Each item must include product_id and valid quantity"}, status=400)
 
         try:
-            prod_obj = Product.objects.get(product_id=prod_code)
+            prod_obj = Product.objects.get(id=prod_code)
         except Product.DoesNotExist:
             return JsonResponse({"success": False, "message": f"Product with product_id {prod_code} does not exist"}, status=400)
 
@@ -1016,14 +1024,14 @@ def update_indent(request):
 
     with transaction.atomic():
         for item in items_data:
-            prod_code = item.get("product_id")
+            prod_code = item.get("id")
             qty = int(item.get("qty", 0))
 
             if not prod_code or qty <= 0:
                 return JsonResponse({"success": False, "message": "Each item must include product_id and valid quantity"})
 
             try:
-                prod_obj = Product.objects.get(product_id=prod_code)
+                prod_obj = Product.objects.get(id=prod_code)
             except Product.DoesNotExist:
                 return JsonResponse({"success": False, "message": f"Product with product_id {prod_code} does not exist"})
 
@@ -1172,16 +1180,16 @@ def product_stock_list(request):
     return JsonResponse({"success":True,"data":data},safe=False)
 
 
-from django.db.models import Max
 
+from django.db.models import Max
 @api_view(["POST"])
 def create_recipe_version(request):
     recipe_id = request.data.get("recipe_id")
     items_data = request.data.get("items", [])
 
-    if not recipe_id or not items_data:
+    if not recipe_id:
         return Response(
-            {"success": False, "message": "recipe_id and items are required"},
+            {"success": False, "message": "recipe_id is required"},
             status=status.HTTP_400_BAD_REQUEST
         )
 
@@ -1193,32 +1201,26 @@ def create_recipe_version(request):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    last_version = (
-        Recipeiterm.objects
-        .filter(recipe=recipe)
-        .aggregate(Max("version"))["version__max"] or 0
-    )
-
-    created_versions = []
+    
+    last_version = (Recipeiterm.objects.filter(recipe=recipe).aggregate(Max("version"))["version__max"] or 1)
+    new_version = last_version + 1
 
     with transaction.atomic():
+        
         for item in items_data:
-            last_version += 1  # 🔥 version increments PER ITEM
-
             Recipeiterm.objects.create(
-                recipe=recipe,        # ✅ FK object
-                version=last_version,
-                **item
+                recipe=recipe,
+                product_id=item["product_id"],  
+                quantity=item["quantity"],
+                version=new_version,
             )
-
-            created_versions.append(last_version)
 
     return Response(
         {
             "success": True,
-            "message": "Recipe updated successfully",
+            "message": f"Recipe version v{new_version} created successfully",
             "recipe_id": recipe.recipe_id,
-            "versions_created": created_versions
+            "version": new_version
         },
         status=status.HTTP_201_CREATED
     )

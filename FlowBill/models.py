@@ -374,6 +374,7 @@ class Recipeiterm(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     version = models.PositiveIntegerField(default=1)
     quantity = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "recipeitem"

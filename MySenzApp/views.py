@@ -268,21 +268,60 @@ class SubcategoryAPIView(APIView):
 
         try:
             if category_id:
-                subcategories = SubCategory.objects.filter(category_id=category_id).order_by("id")
-                serializer = SubcategoryDetailSerilalizer(subcategories, many=True)
-                return Response({"success": True,"message": "Subcategories retrieved successfully", "data": serializer.data})
+                subcategories = (
+                    SubCategory.objects.filter(category_id=category_id)
+                    .select_related("category")  # join category for name
+                    .order_by("id")
+                )
 
-            
-            subcategories = SubCategory.objects.all().order_by("id")
-            serializer = SubcategoryDetailSerilalizer(subcategories, many=True)
-            return Response({"success": True,"message": "All subcategories retrieved successfully","data": serializer.data})
+                data = [
+                    {
+                        "id": sub.id,
+                        "name": sub.name,
+                        "discount": f"{sub.discount if sub.discount is not None else 0} %",
+                        "is_active": sub.is_active,
+                        "category": sub.category.id if sub.category else None,
+                        "category_name": sub.category.name if sub.category else None,
+                    }
+                    for sub in subcategories
+                ]
+
+                return Response({
+                    "success": True,
+                    "message": "Subcategories retrieved successfully",
+                    "data": data
+                })
+
+            # If no category_id, return all
+            subcategories = (
+                SubCategory.objects.all()
+                .select_related("category")
+                .order_by("id")
+            )
+
+            data = [
+                {
+                    "id": sub.id,
+                    "name": sub.name,
+                    "discount": sub.discount,
+                    "is_active": sub.is_active,
+                    "category": sub.category.id if sub.category else None,
+                    "category_name": sub.category.name if sub.category else None,
+                }
+                for sub in subcategories
+            ]
+
+            return Response({
+                "success": True,
+                "message": "All subcategories retrieved successfully",
+                "data": data
+            })
 
         except Exception as e:
             return Response({
                 "success": False,
                 "message": f"Error retrieving subcategories: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
     def post(self, request):
         serializer = SubcategorySerilalizer(data=request.data)
