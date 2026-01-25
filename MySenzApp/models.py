@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields import ArrayField
+from django.utils import timezone
 
 
 class AdminUserManager(BaseUserManager):
@@ -72,20 +73,38 @@ class TimeSlot(models.Model):
 class Store(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store_name = models.CharField(max_length=150)
+    store_code = models.CharField(max_length=50, null=True, blank=True, unique=True)
     store_contact = models.CharField(max_length=20)
     store_address = models.TextField()
-    gst = models.CharField(max_length=15,unique=True)
-    dl = models.CharField(max_length=12, unique=True) 
-
-    gst_certificate = models.ImageField(upload_to="store/gst_certificates/", null=True, blank=True) 
+    gst = models.CharField(max_length=15, unique=True)
+    dl = models.CharField(max_length=12, unique=True)
+    store_formate = models.CharField(max_length=50, blank=True, null=True)
+    create_at = models.DateTimeField(auto_now_add=True)
+    gst_certificate = models.ImageField(upload_to="store/gst_certificates/", null=True, blank=True)
     dl_image = models.ImageField(upload_to="store/drug_license/", null=True, blank=True)
     FFSI_image = models.ImageField(upload_to="store/drug_license/", null=True, blank=True)
 
+    class Meta:
+        db_table = "store"
+
+    def save(self, *args, **kwargs):
+        if not self.store_code:
+            last_store = Store.objects.order_by('-create_at').first()
+            if last_store and last_store.store_code:
+                try:
+                    last_num = int(last_store.store_code.split('-')[1])
+                except (IndexError, ValueError):
+                    last_num = 0
+            else:
+                last_num = 0
+
+            self.store_code = f"ST-{last_num + 1:06d}"
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.store_name
-    
-    class Meta:
-        db_table="store"
+
+        
 
 
 class StorePartner(models.Model):
@@ -93,14 +112,21 @@ class StorePartner(models.Model):
     partner_name = models.CharField(max_length=150)
     partner_contact = models.CharField(max_length=20)
     partner_email = models.EmailField()
+    partner_gst = models.CharField(max_length=15, blank=True, null=True)
+    partner_adhar = models.CharField(max_length=12, blank=True, null=True)
+    partner_pan = models.CharField(max_length=10, blank=True, null=True)
+
     company_name = models.CharField(max_length=150, blank=True, null=True)
     gst = models.CharField(max_length=15, blank=True, null=True)
     company_email = models.EmailField(blank=True, null=True)
+    company_pan = models.CharField(max_length=10, blank=True, null=True)
 
-    llp_file = models.FileField(upload_to="store/partners/llp/", blank=True, null=True)
-    pvtl_registration_file = models.FileField(upload_to="store/partners/pvtl/", blank=True, null=True)
-    firm_document = models.FileField(upload_to="store/partners/firm/", blank=True, null=True)
-    franchise_agreement = models.FileField(upload_to="store/partners/franchise/", blank=True, null=True)
+    partner_adhar_image = models.ImageField(upload_to="storepartner/adhar_images/", blank=True, null=True)
+    partner_pan_image = models.ImageField(upload_to="storepartner/pan_images/", blank=True, null=True)
+    company_gst_certificate = models.ImageField(upload_to="storepartner/company_gst_certificates/", blank=True, null=True)
+    company_pan_image = models.ImageField(upload_to="storepartner/company_pan_images/", blank=True, null=True)
+    incorporation_certificate = models.ImageField(upload_to="storepartner/incorporation_certificates/", blank=True, null=True)
+
 
     share_percentage = models.DecimalField(max_digits=5, decimal_places=2, help_text="Percentage of shares")
 
@@ -172,6 +198,7 @@ class Service(models.Model):
         db_table="services"
 
 
+
 class Storeservices(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="services")
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
@@ -233,6 +260,7 @@ def generate_passcode(length=6):
     return ''.join(random.choices(string.digits, k=length)) 
 
 
+
 class StoreManager(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="managers")
@@ -250,9 +278,6 @@ class StoreManager(models.Model):
         db_table="storemanager"
 
 
-
-
-    
 
 
 class AppointmentStatusLog(models.Model):

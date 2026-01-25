@@ -29,8 +29,6 @@ import pytz
 IST = pytz.timezone("Asia/Kolkata")
 
 
-
-
 class VendorAPIView(APIView):
     def post(self, request):
 

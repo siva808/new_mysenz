@@ -623,6 +623,7 @@ def create_store_manager(request):
             store_address=data["storeAddress"],
             gst=data["gstNumber"],
             dl=data["dlNumber"],
+            store_formate=data["storeFormate"],
             gst_certificate=request.FILES.get("gstCertificate"), 
             dl_image=request.FILES.get("dlImage"),
             FFSI_image=request.FILES.get("ffsiImage")
@@ -646,5 +647,3 @@ def create_store_manager(request):
     except Exception as e:
         return Response({"success": False,"message": "Unexpected error occurred","details": str(e)
         },status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        

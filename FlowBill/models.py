@@ -149,6 +149,7 @@ class Indent(models.Model):
     is_active = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True) 
+    
     def save(self, *args, **kwargs): 
         if not self.indent_number: 
             super().save(*args, **kwargs) 
@@ -421,41 +422,41 @@ class GRNReturnItem(models.Model):
         ]
 
 
-# class InedentReturn(models.Model):
-#     indent_return_number = models.CharField(max_length=50, unique=True)
-#     indent = models.ForeignKey(Indent, on_delete=models.CASCADE, related_name="returns")
-#     status = models.CharField(max_length=20, default="initiated")  
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
+class InedentReturn(models.Model):
+    indent_return_number = models.CharField(max_length=50, unique=True)
+    indent = models.ForeignKey(Indent, on_delete=models.CASCADE, related_name="returns")
+    status = models.CharField(max_length=20, default="initiated")  
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-#     class Meta:
-#         db_table = "indent_return"
-#         indexes = [
-#             models.Index(fields=["indent", "status"]),
-#         ]
+    class Meta:
+        db_table = "indent_return"
+        indexes = [
+            models.Index(fields=["indent", "status"]),
+        ]
 
-#     def __str__(self):
-#         return self.indent_return_number
+    def __str__(self):
+        return self.indent_return_number
 
-#     def save(self, *args, **kwargs):
-#         if not self.indent_return_number:
-#             super().save(*args, **kwargs)
-#             self.indent_return_number = f"IND-RET-{self.id:07d}"
-#             super().save(update_fields=["indent_return_number"])
-#         else:
-#             super().save(*args, **kwargs)
+    def save(self, *args, **kwargs):
+        if not self.indent_return_number:
+            super().save(*args, **kwargs)
+            self.indent_return_number = f"IND-RET-{self.id:07d}"
+            super().save(update_fields=["indent_return_number"])
+        else:
+            super().save(*args, **kwargs)
 
-# class IndentReturnItem(models.Model):
-#     indent_return = models.ForeignKey(InedentReturn, on_delete=models.CASCADE, related_name="items")
-#     indent_item = models.ForeignKey(IndentItem, on_delete=models.CASCADE)
-#     return_quantity = models.PositiveIntegerField()
-#     reason = models.CharField(max_length=255)
+class IndentReturnItem(models.Model):
+    indent_return = models.ForeignKey(InedentReturn, on_delete=models.CASCADE, related_name="items")
+    indent_item = models.ForeignKey(IndentItem, on_delete=models.CASCADE)
+    return_quantity = models.PositiveIntegerField()
+    reason = models.CharField(max_length=255)
 
-#     class Meta:
-#         db_table = "indent_return_item"
-#         indexes = [
-#             models.Index(fields=["indent_return", "indent_item"]),
-#         ]
+    class Meta:
+        db_table = "indent_return_item"
+        indexes = [
+            models.Index(fields=["indent_return", "indent_item"]),
+        ]
 
 
 

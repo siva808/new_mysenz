@@ -21,7 +21,8 @@ class StoreConfigSerializer(serializers.Serializer):
     storeContact = serializers.CharField()
     storeAddress = serializers.CharField()
     gstNumber = serializers.CharField()   
-    dlNumber = serializers.CharField()   
+    dlNumber = serializers.CharField()  
+    storeFormate = serializers.CharField() 
     gstCertificate = serializers.ImageField(required=False, allow_null=True)
     dlImage = serializers.ImageField(required=False, allow_null=True)
     FFSIImage = serializers.ImageField(required=False, allow_null=True)
@@ -34,7 +35,7 @@ class StoreConfigSerializer(serializers.Serializer):
 class StoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
-        fields = ["id", "store_name", "store_contact", "store_address"]
+        fields = ["id", "store_name", "store_contact", "store_address","store_formate","store_code",]
 
 
 class StoreManagerSerializer(serializers.ModelSerializer):
