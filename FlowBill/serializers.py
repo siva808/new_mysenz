@@ -122,7 +122,7 @@ class RecipeItermSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.name", read_only=True)
     class Meta:
         model = Recipeiterm
-        fields = ["product","quantity","product_name"]
+        fields = ["product","quantity","product_name","created_at"]
 
 class RecipeSerializer(serializers.ModelSerializer):
     items = RecipeItermSerializer(many=True)
@@ -130,7 +130,7 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     class Meta:                         
         model = Recipe
-        fields = ["id","recipe_id","service","items","created_at","service_name",]
+        fields = ["id","recipe_id","service","items","created_at","service_name","category_id"]
         read_only_fields = ["recipe_id"]
 
         

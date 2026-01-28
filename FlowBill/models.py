@@ -52,6 +52,8 @@ class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     product_id = models.CharField(max_length=20, unique=True, blank=True)
     name = models.CharField(max_length=100)
+    hsn_Code = models.CharField(max_length=20, blank=True, null=True)
+    tax = models.DecimalField(max_digits=5, decimal_places=2, default=0,blank=True, null=True)  
     description = models.TextField(blank=True)   
     stock = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
@@ -84,7 +86,8 @@ class Product(models.Model):
         db_table = "product"
         indexes = [ models.Index(fields=["sub_category"]), 
                    models.Index(fields=["brand_name"]), 
-                   models.Index(fields=["material"]), ]
+                   models.Index(fields=["material"]),
+                 models.Index(fields=["category"])]
 
 
 
@@ -351,6 +354,7 @@ class DispatchItem(models.Model):
 class Recipe(models.Model):
     recipe_id = models.CharField(max_length=20, unique=True, blank=True)
     service = models.ForeignKey(Service, on_delete=models.CASCADE)
+    category_id = models.ForeignKey(Category, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -409,6 +413,8 @@ class GRNReturn(models.Model):
         else:
             super().save(*args, **kwargs)
 
+
+
 class GRNReturnItem(models.Model):
     grn_return = models.ForeignKey(GRNReturn, on_delete=models.CASCADE, related_name="items")
     grn_item = models.ForeignKey(GRNItem, on_delete=models.CASCADE)
@@ -420,6 +426,7 @@ class GRNReturnItem(models.Model):
         indexes = [
             models.Index(fields=["grn_return", "grn_item"]),
         ]
+
 
 
 class InedentReturn(models.Model):
@@ -446,6 +453,8 @@ class InedentReturn(models.Model):
         else:
             super().save(*args, **kwargs)
 
+
+
 class IndentReturnItem(models.Model):
     indent_return = models.ForeignKey(InedentReturn, on_delete=models.CASCADE, related_name="items")
     indent_item = models.ForeignKey(IndentItem, on_delete=models.CASCADE)
@@ -457,6 +466,7 @@ class IndentReturnItem(models.Model):
         indexes = [
             models.Index(fields=["indent_return", "indent_item"]),
         ]
+
 
 
 

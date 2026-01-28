@@ -79,10 +79,15 @@ class Store(models.Model):
     gst = models.CharField(max_length=15, unique=True)
     dl = models.CharField(max_length=12, unique=True)
     store_formate = models.CharField(max_length=50, blank=True, null=True)
+    store_category = models.CharField(max_length=50, blank=True, null=True)
     create_at = models.DateTimeField(auto_now_add=True)
+    
     gst_certificate = models.ImageField(upload_to="store/gst_certificates/", null=True, blank=True)
     dl_image = models.ImageField(upload_to="store/drug_license/", null=True, blank=True)
-    FFSI_image = models.ImageField(upload_to="store/drug_license/", null=True, blank=True)
+    FFSI_image = models.ImageField(upload_to="store/FFSI_image/", null=True, blank=True)
+    clinicalLicense_image = models.ImageField(upload_to="store/clinical_license/", null=True, blank=True)
+    fireSafetyLicense_image = models.ImageField(upload_to="store/fire_safety_license/", null=True, blank=True)
+
 
     class Meta:
         db_table = "store"

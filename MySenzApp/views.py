@@ -371,7 +371,8 @@ class SubcategoryAPIView(APIView):
 class storepartner(APIView):
 
     def post(self, request):
-        serializer = StorePartnerSerializer(data=request.data)
+        #serializer = StorePartnerSerializer(data=request.data)
+        serializer = StorePartnerSerializer( data=request.data, context={"request": request}  )
         if serializer.is_valid():
             serializer.save()
             return Response({"success": True,"message": "Store Partner created successfully",})

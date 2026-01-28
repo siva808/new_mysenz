@@ -3,6 +3,7 @@ from .models import *
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework.response import Response
+from rest_framework import request
 
 
 class TimestampMixin(serializers.ModelSerializer):
@@ -23,9 +24,12 @@ class StoreConfigSerializer(serializers.Serializer):
     gstNumber = serializers.CharField()   
     dlNumber = serializers.CharField()  
     storeFormate = serializers.CharField() 
+    storeCategory = serializers.CharField()
     gstCertificate = serializers.ImageField(required=False, allow_null=True)
     dlImage = serializers.ImageField(required=False, allow_null=True)
     FFSIImage = serializers.ImageField(required=False, allow_null=True)
+    clinicalLicenseImage = serializers.ImageField(required=False, allow_null=True)
+    fireSafetyLicenseImage = serializers.ImageField(required=False, allow_null=True)
     managerEmail = serializers.EmailField()
     managerPassword = serializers.CharField(write_only=True)
     managerName = serializers.CharField()
@@ -35,7 +39,7 @@ class StoreConfigSerializer(serializers.Serializer):
 class StoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
-        fields = ["id", "store_name", "store_contact", "store_address","store_formate","store_code",]
+        fields = ["id", "store_name", "store_contact", "store_address","store_formate","store_code","store_category",]
 
 
 class StoreManagerSerializer(serializers.ModelSerializer):
@@ -45,7 +49,7 @@ class StoreManagerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StoreManager
-        fields = ["id", "manager_name", "manager_contact", "manager_email", "store","is_active"]
+        fields = ["id", "manager_name", "manager_contact", "manager_email", "store","is_active",]
 
         read_only_fields = ["created_at", "passcode"]
     def update(self, instance, validated_data):
@@ -355,6 +359,18 @@ class BookingDashboardSerializer(serializers.ModelSerializer):
 
 
 class StorePartnerSerializer(serializers.ModelSerializer):
-    class Meta: 
-        model = StorePartner 
+    class Meta:
+        model = StorePartner
         fields = "__all__"
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+
+        # Inject files from request.FILES
+        validated_data["partner_adhar_image"] = request.FILES.get("partner_adhar_image")
+        validated_data["partner_pan_image"] = request.FILES.get("partner_pan_image")
+        validated_data["company_gst_certificate"] = request.FILES.get("company_gst_certificate")
+        validated_data["company_pan_image"] = request.FILES.get("company_pan_image")
+        validated_data["incorporation_certificate"] = request.FILES.get("incorporation_certificate")
+
+        return super().create(validated_data)

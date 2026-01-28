@@ -624,9 +624,12 @@ def create_store_manager(request):
             gst=data["gstNumber"],
             dl=data["dlNumber"],
             store_formate=data["storeFormate"],
+            store_category=data["storeCategory"],
             gst_certificate=request.FILES.get("gstCertificate"), 
-            dl_image=request.FILES.get("dlImage"),
-            FFSI_image=request.FILES.get("ffsiImage")
+            dl_image=request.FILES.get("dlCertificate"),
+            FFSI_image=request.FILES.get("fssaiLicense"),
+            clinicalLicense_image=request.FILES.get("clinicalLicense"),
+            fireSafetyLicense_image=request.FILES.get("fireSafetyLicense"),
         )
 
         manager_user = AdminUser.objects.create_user(

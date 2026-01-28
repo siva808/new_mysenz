@@ -472,6 +472,19 @@ class RecipeAPIView(APIView):
     
     def get(self,request):
         recipe_id = request.query_params.get("id")
+
+        category = request.query_params.get("category_id")
+        if category:
+            queryset = Recipe.objects.filter(service__category__id=category)
+            data = []
+            for recipe in queryset:
+                data.append({
+                    "id": recipe.id,
+                    "recipe_id": recipe.recipe_id,
+                    "service": recipe.service.name,
+                    "created_at": timezone.localtime(recipe.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
+                })
+            return Response({"success":True,"data":data},status=status.HTTP_200_OK)
         
         if recipe_id:
             recipe = Recipe.objects.select_related("service").prefetch_related("items__product").get(id=recipe_id)
@@ -479,7 +492,7 @@ class RecipeAPIView(APIView):
             grouped = defaultdict(list) 
             
             for item in recipe.items.all().order_by("-version"): 
-                grouped[f"v{item.version}"].append({ "id": item.id,"product":item.product.id, "product_name": item.product.name, "uom": item.product.uom, "quantity": item.quantity, })
+                grouped[f"v{item.version}"].append({ "id": item.id,"product":item.product.id, "product_name": item.product.name, "uom": item.product.uom, "quantity": item.quantity, "created_at": timezone.localtime(item.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"), })
             data = { "id": recipe.id, 
                     "recipe_id": recipe.recipe_id, 
                     "service": recipe.service.name,"category_id": recipe.service.category.id if recipe.service and recipe.service.category else None, 
