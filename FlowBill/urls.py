@@ -22,5 +22,11 @@ urlpatterns = [
    path("dispatch_order/", DispatchAPIView.as_view()),
    path("recipe-view/", RecipeAPIView.as_view()),
    path("create_recipe_version/", create_recipe_version),
+   path("get_vendor_grn/",get_vendor_stock),
+   path("wh-grn-return/",GRNReturnAPIView.as_view()),
+   path("get_vendor_creditnote/",get_credit_notes),
+   path("get_service_product/",CategoryFilterView.as_view()),
+   path("package-apiview/",PackageCreateAPIView.as_view())
+ 
 
 ]

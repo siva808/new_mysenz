@@ -30,6 +30,7 @@ IST = pytz.timezone("Asia/Kolkata")
 
 
 class VendorAPIView(APIView):
+
     def post(self, request):
 
         serializer = VendorSerializer(data=request.data)
@@ -56,17 +57,25 @@ class VendorAPIView(APIView):
     def get(self, request):
         category_id = request.query_params.get("category_id")
 
-        if category_id: 
+        try:
+            category_id = int(category_id) if category_id is not None else None
+        except ValueError:
+            return Response({"success": False, "message": "Invalid category_id"}, status=400)
+
+        if category_id == 0:
+            vendors = Vendor.objects.all().values("id", "name")
+            return Response({"success": True, "data": list(vendors)}, status=200)
+
+        elif category_id: 
             queryset = Vendor.objects.filter(category__id=category_id) 
-            vendor = queryset.values("id","name")
+            vendor = queryset.values("id", "name")
+            return Response({"success": True, "data": list(vendor)}, status=200)
 
-            return Response({"success": True, "data": list(vendor)})
         else: 
-            queryset = Vendor.objects.filter() 
+            queryset = Vendor.objects.all()
+            serializer = VendorSerializer(queryset, many=True)
+            return Response({"success": True, "data": serializer.data}, status=200)
 
-        serializer = VendorSerializer(queryset, many=True)
-
-        return Response({"success": True, "data": serializer.data})
 
     def delete(self, request):
         json_request = JSONParser().parse(request)
@@ -310,6 +319,7 @@ class GRNView(APIView):
     def get(self, request):
         grn_number = request.query_params.get("grn_number")
 
+
         if grn_number:
 
             try:
@@ -517,36 +527,90 @@ class RecipeAPIView(APIView):
 class GRNReturnAPIView(APIView):
     @transaction.atomic
     def post(self, request):
-        grn_number = request.data.get("grn_number")
+        vendor_id = request.data.get("vendor_id")
         items_data = request.data.get("items", [])
+        vendor_type = request.data.get("vendor_type", "")
+        reason = request.data.get("reason", "")
+        insert_type = request.data.get("insert_type", "")
 
+        # Vendor lookup
         try:
-            grn = GRN.objects.get(grn_number=grn_number)
-        except GRN.DoesNotExist:
-            return Response({"success": False, "error": f"GRN {grn_number} does not exist"}, status=status.HTTP_404_NOT_FOUND)
+            vendor = Vendor.objects.get(id=vendor_id)
+        except Vendor.DoesNotExist:
+            return Response({"success": False, "error": "Vendor not found"})
+
+        grn_return = GRNReturn.objects.create(
+            vendor=vendor,
+            vendor_type=vendor_type,
+            status="initiated",
+            reason=reason)
+       
+        total_credit_amount = 0
+        return_details = []
 
         for item in items_data:
-            batch_no = item.get("batch_no")
+            grn_item_id = item.get("batch_no")
             return_qty = int(item.get("return_qty", 0))
 
             try:
-                grn_item = grn.items.get(batch_no=batch_no)
-            except GRNItem.DoesNotExist:
-                return Response({"success": False, "error": f"Batch {batch_no} not found in GRN {grn_number}"}, status=status.HTTP_404_NOT_FOUND)
+                grn_item = ProductBatch.objects.select_for_update().get(batch_no=grn_item_id)
+            except ProductBatch.DoesNotExist:
+                return Response({"success": False, "error": f"ProductBatch {grn_item_id} not found"})
 
-            if return_qty > grn_item.accepted_qty:
-                return Response({"success": False, "error": f"Return quantity exceeds accepted quantity for batch {batch_no}"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            available_qty = grn_item.stock
 
-            grn_item.returned_qty = F('returned_qty') + return_qty
-            grn_item.save(update_fields=['returned_qty'])
+            if return_qty <= 0: 
+                return_qty = available_qty
 
-            # Update stock in ProductBatch
-            product_batch = grn_item.product_batch
-            product_batch.stock = F('stock') - return_qty
-            product_batch.save(update_fields=['stock'])
+            if return_qty > available_qty: 
+                return Response( {"success": False, "error": f"Return qty exceeds available qty for batch {grn_item.batch_no}"}, status=status.HTTP_400_BAD_REQUEST )
 
-        return Response({"success": True, "message": "GRN return processed successfully"}, status=status.HTTP_200_OK)
-    
+
+            # Update ProductBatch
+            grn_item.stock = F("stock") - return_qty
+            grn_item.save(update_fields=["stock"])
+
+            # Credit calculation
+            item_credit = return_qty * grn_item.purchase_price
+            total_credit_amount += item_credit
+
+            
+            
+
+            item_credit = return_qty * grn_item.purchase_price
+            
+            GRNReturnItem.objects.create(
+                grn_return=grn_return,
+                product_item=grn_item,
+                return_quantity=return_qty,
+                batch_no=grn_item.batch_no,
+                amount = item_credit
+            )
+
+            return_details.append({
+                "product": grn_item.product.name,
+                "batch_no": grn_item.batch_no,
+                "return_qty": return_qty,
+                "credit_amount": item_credit
+            })
+
+       
+        credit_note = CreditNote.objects.create(
+            vendor=vendor,
+            grn=grn_return,
+            total_amount=total_credit_amount,
+            active=True,
+            insert_type=insert_type
+)
+
+        return Response({"success": True,"grn_return_number": grn_return.grn_return_number,"credit_amount": str(credit_note.total_amount),"return_details": return_details
+        }, status=status.HTTP_200_OK)
+
+
+
+
+
 
     def get(self, request):
         grn_number = request.query_params.get("grn_number")
@@ -721,6 +785,7 @@ def get_po_details(request):
                 "po_number": po.po_number,
                 "id":po.id,
                 "vendor": getattr(po.vendor, "name", po.vendor_id),
+                "vendor_id": po.vendor_id,
                 "created_at": timezone.localtime(po.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
                 "status": po.status,
                 "category_name": summary["category_name"]
@@ -1118,8 +1183,9 @@ def create_grn(request):
 
       
         grn = GRN.objects.create(
-            purchase_order_id=purchase_order_id,
+            purchase_order_id=po.id,
             status=data.get("status"),
+            vendor_id=data.get("vendor_id"),
             invoice_date=data.get("invoice_date"),
             net_amount=data.get("net_amount", 0),
             tax_amount=data.get("tax_amount", 0),
@@ -1235,3 +1301,243 @@ def create_recipe_version(request):
         },
         status=status.HTTP_201_CREATED
     )
+
+
+
+@api_view(["GET"])
+def get_vendor_stock(request):
+    try:
+        vendor_id = request.query_params.get("vendor_id")
+        category_id = request.query_params.get("category_id")
+
+        if not vendor_id and not category_id:
+            return Response({
+                "success": False,
+                "message": "Either vendor_id or category_id is required"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        stock_data = []
+
+       
+        if vendor_id:
+            grns = GRN.objects.filter(vendor_id=vendor_id).prefetch_related("items__product")
+            for grn in grns:
+                for item in grn.items.all():
+                    stock_data.append({
+                        "grn_number": grn.grn_number,
+                        "product_id": item.product_id,
+                        "HSNcode":item.product.hsn_Code,
+                        "product_name": item.product.name if item.product else None,
+                        "batch_no": item.batch_no,
+                        "exp_date": item.expiry_date,
+                        "accepted_qty": item.accepted_qty,
+                        "stock": ProductBatch.objects.filter(
+                            product=item.product,
+                            batch_no=item.batch_no
+                        ).values_list("stock", flat=True).first(),
+                        "mrp": str(item.mrp),
+                        "purchase_price": str(item.purchase_price),
+                        "margin": str(item.margin),
+                    })
+
+       
+        if category_id:
+            batches = ProductBatch.objects.filter(product__category_id=category_id).select_related("product")
+            for batch in batches:
+                stock_data.append({
+                    "product_id": batch.product.id,
+                    "product_name": batch.product.name,
+                    "HSNcode":batch.product.hsn_Code,
+                    "batch_no": batch.batch_no,
+                    "exp_date": batch.expiry_date,
+                    "stock": batch.stock,
+                    "mrp": str(batch.mrp),
+                    "purchase_price": str(batch.purchase_price),
+                    "margin": str(batch.margin_price),
+                })
+
+        return Response({
+            "success": True,
+            "count": len(stock_data),
+            "data": stock_data
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({
+            "success": False,
+            "message": f"Error fetching vendor stock: {str(e)}"
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+@api_view(["GET"])
+def get_credit_notes(request):
+    note_type = request.query_params.get("note_type")
+
+    if note_type == "credit":
+        vendor_totals = (
+            CreditNote.objects.filter(active=True)
+            .values("vendor_id", "vendor__name")
+            .annotate(total=Sum("total_amount"))
+            .order_by("vendor__name")
+        )
+        data = [
+            {
+                "vendor_id": vt["vendor_id"],
+                "vendor_name": vt["vendor__name"],
+                "total_credit_amount": str(vt["total"]),
+            }
+            for vt in vendor_totals
+        ]
+        return Response({"success": True, "count": len(data), "data": data})
+
+    elif note_type == "history":
+        notes = (
+            CreditNote.objects
+            .select_related("vendor")
+            .values(
+                "vendor_id",
+                "vendor__name",
+                "insert_type",
+                "active",
+                "total_amount",
+                "created_at"
+            )
+        )
+        data = [
+            {
+                "vendor_id": n["vendor_id"],
+                "vendor_name": n["vendor__name"],
+                "insert_type": n["insert_type"],
+                "is_active": n["active"],
+                "total_credit_amount": str(n["total_amount"]),
+                "created_at": timezone.localtime(n["created_at"], IST).strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            for n in notes
+        ]
+        return Response({"success": True, "count": len(data), "data": data})
+
+    return Response({"success": False, "message": "Invalid note_type"}, status=400)
+
+
+class CategoryFilterView(APIView):
+    def post(self,request):
+        category_ids = request.data.get("categorys",[])
+        filter_type = request.data.get("fiter_type")
+
+        if filter_type == "products":
+             products = Product.objects.filter(category_id__in=category_ids).only("id","name").values("id", "name").iterator()
+             results = list(products)
+        elif filter_type == "services":
+            services = Service.objects.filter(category_id__in=category_ids).only("id", "name", "price").values("id", "name", "price").iterator()
+            results = list(services) 
+
+        else:
+            products = Product.objects.filter(category_id__in=category_ids).only("id","name").values("id", "name").iterator()
+            services = Service.objects.filter(category_id__in=category_ids).only("id", "name").values("id", "name").iterator()
+            results = { "products": list(products), "services": list(services) }
+
+        return Response({"success":True,"data":results})
+    
+
+class PackageCreateAPIView(APIView):
+
+    @transaction.atomic
+    def post(self, request):
+        data = request.data
+
+        try:
+            # ✅ Create package ONCE
+            package = Packages.objects.create(
+                package_name=data.get("package_name"),
+                package_type=data.get("package_type"),
+                start_date=data.get("start_date"),
+                end_date=data.get("end_date"),
+                discount=data.get("discount", 0)
+            )
+
+            items = data.get("Products", [])
+            package_items = []
+            total_price = 0
+
+            for item in items:
+                item_type = item.get("type", "").strip().lower()
+                item_id = item.get("item")
+                qty = int(item.get("qty", 1))
+
+                package_item = PackagesItem(
+                    packages=package,
+                    item_type=item_type,
+                    qty=qty,
+                )
+
+                if item_type == "product":
+                    product = ProductBatch.objects.get(id=item_id)
+                    package_item.product_id = item_id
+                    total_price += (product.mrp or 0) * qty
+
+                elif item_type == "service":
+                    service = Service.objects.get(id=item_id)
+                    package_item.service_id = item_id
+                    total_price += (service.price or 0) * qty
+
+                else:
+                    raise ValueError(f"Invalid item type: {item_type}")
+
+                package_items.append(package_item)
+
+            # ✅ Bulk create items only once
+            PackagesItem.objects.bulk_create(package_items)
+
+            # ✅ Apply discount once
+            discount_percentage = package.discount or 0
+            final_price = total_price - (total_price * discount_percentage / 100)
+            package.price = final_price
+            package.save()
+
+            return Response({
+                "success": True,
+                "package_id": package.id,
+                "items_count": len(package_items),
+                "total_price": str(total_price),
+                "final_price": str(final_price),
+                "discount": f"{discount_percentage}%"
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"success": False, "error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    def get(self, request):
+
+        packages = Packages.objects.prefetch_related(
+            Prefetch(
+                "packagesitem_set",
+                queryset=PackagesItem.objects.select_related("product", "service")
+            )
+        )
+
+        response = []
+
+        for pkg in packages:
+            response.append({
+                "package_id": pkg.id,
+                "package_name": pkg.package_name,
+                "package_type": pkg.package_type,
+                "start_date": pkg.start_date,
+                "end_date": pkg.end_date,
+                "created_at": timezone.localtime(pkg.created_at).strftime("%Y-%m-%d %H:%M:%S"),
+                "discount": f"{pkg.discount}%",
+                "final_price": str(pkg.price),
+                "Products": [
+                    {
+                        "type": item.item_type.lower(),
+                        "id": item.product.id if item.product else item.service.id,
+                        "name": item.product.name if item.product else item.service.name,
+                        "qty": item.qty,
+                    }
+                    for item in pkg.packagesitem_set.all()
+                ]
+            })
+
+        return Response({"success": True,"data": response},status=status.HTTP_200_OK)

@@ -204,6 +204,7 @@ class UOM(models.Model):
 class GRN(models.Model):
     grn_number = models.CharField(max_length=50, unique=True)
     purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="grns")
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE,null=True, blank=True)
     status = models.CharField(max_length=20) 
     invoice_date = models.DateField(null=True, blank=True)
     net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -216,7 +217,9 @@ class GRN(models.Model):
         db_table = "grn"
         indexes = [
           models.Index(fields= ["purchase_order"]),
-          models.Index(fields= ["status"]),]
+          models.Index(fields= ["status"]),
+          models.Index(fields= ["vendor"]),
+          ]
 
     def __str__(self):
       return self.grn_number
@@ -339,6 +342,7 @@ class Dispatch(models.Model):
         indexes = [ models.Index(fields=["store","status"])]
 
 
+
 class DispatchItem(models.Model):
     
     dispatch = models.ForeignKey(Dispatch,on_delete=models.CASCADE,related_name="items")
@@ -391,15 +395,18 @@ class Recipeiterm(models.Model):
 
 class GRNReturn(models.Model):
     grn_return_number = models.CharField(max_length=50, unique=True)
-    grn = models.ForeignKey(GRN, on_delete=models.CASCADE, related_name="returns")
-    status = models.CharField(max_length=20, default="initiated")  
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name="returns")
+    status = models.CharField(max_length=20, default="initiated") 
+    vendor_type = models.CharField(max_length=20)
+    reason = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
 
     class Meta:
         db_table = "grn_return"
         indexes = [
-            models.Index(fields=["grn", "status"]),
+            models.Index(fields=["vendor", "status"]),
         ]
 
     def __str__(self):
@@ -417,15 +424,31 @@ class GRNReturn(models.Model):
 
 class GRNReturnItem(models.Model):
     grn_return = models.ForeignKey(GRNReturn, on_delete=models.CASCADE, related_name="items")
-    grn_item = models.ForeignKey(GRNItem, on_delete=models.CASCADE)
+    product_item = models.ForeignKey(ProductBatch,on_delete=models.CASCADE)
+    batch_no = models.CharField(max_length=50)
     return_quantity = models.PositiveIntegerField()
-    reason = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     class Meta:
         db_table = "grn_return_item"
         indexes = [
-            models.Index(fields=["grn_return", "grn_item"]),
+            models.Index(fields=["grn_return", "product_item"]),
         ]
+
+
+
+class CreditNote(models.Model):
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
+    grn = models.ForeignKey(GRNReturn, on_delete=models.CASCADE)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    payment_type = models.CharField(max_length=50,default="CreditNote")
+    active = models.BooleanField(default=True) 
+    insert_type = models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "credit_note"
+
 
 
 
@@ -466,6 +489,33 @@ class IndentReturnItem(models.Model):
         indexes = [
             models.Index(fields=["indent_return", "indent_item"]),
         ]
+
+
+
+
+class Packages(models.Model):
+    package_name = models.CharField(max_length=100,db_index=True)
+    package_type = models.CharField(max_length=50)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    price = models.DecimalField(max_digits=10,decimal_places=2,null=True,blank=True)
+    discount = models.DecimalField(max_digits=5,decimal_places=2,null=True,blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "packages"
+
+class PackagesItem(models.Model):
+    packages = models.ForeignKey(Packages,on_delete=models.CASCADE,db_index=True)
+    product = models.ForeignKey(Product,on_delete=models.CASCADE,blank=True,null=True)
+    service = models.ForeignKey(Service,on_delete=models.CASCADE,blank=True,null=True)
+    item_type = models.CharField(max_length=50)
+    qty = models.PositiveIntegerField()
+    
+
+    class Meta:
+        db_table = "packages_item"
+
 
 
 
