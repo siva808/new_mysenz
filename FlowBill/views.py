@@ -376,35 +376,53 @@ class GRNView(APIView):
             return Response({"success":True, "data": data} , status=status.HTTP_200_OK)
 
 
+
 class DispatchAPIView(APIView):
     
     def get(self, request):
-
         store_id = request.query_params.get("store_id")
-        qs = Dispatch.objects.select_related("store", "indent").prefetch_related("items__product_batch", "items__indent_item")
-        
+        status_filter = request.query_params.get("status")  # new filter
+
+        qs = Dispatch.objects.select_related("store", "indent").prefetch_related(
+            "items__product_batch", "items__indent_item"
+        )
+
         if store_id:
             qs = qs.filter(store_id=store_id)
+
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
         data = [
             {
-                "id": d.id, 
+                "id": d.id,
                 "store": d.store.store_name,
-                "dispatch_id":d.dispatch_id, 
+                "dispatch_id": d.dispatch_id,
                 "created_at": timezone.localtime(d.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
-                "indent": d.indent.indent_number, 
-                "status": d.status, 
-                "items": [ { "product": di.product_batch.product.name,
-                            "product_id": di.product_batch.product.id,
-                            "brand_name": di.product_batch.product.brand_name,
-                            "uom": di.product_batch.product.uom,
-                            "exp_date": di.product_batch.expiry_date,
-                            "batch_no": di.product_batch.batch_no, 
-                            "margin":di.product_batch.margin_price,
-                            "mrp":di.product_batch.mrp,
-                            "quantity": di.quantity, } for di in d.items.all() ] 
-            } for d in qs
+                "indent": d.indent.indent_number,
+                "indent_id": d.indent.id,
+                "status": d.status,
+                "items": [
+                    {
+                        "product": di.product_batch.product.name,
+                        "product_id": di.product_batch.product.id,
+                        "brand_name": di.product_batch.product.brand_name,
+                        "uom": di.product_batch.product.uom,
+                        "gst": di.product_batch.gst_percent,
+                        "exp_date": di.product_batch.expiry_date,
+                        "batch_no": di.product_batch.batch_no,
+                        "margin": di.product_batch.margin_price,
+                        "mrp": di.product_batch.mrp,
+                        "quantity": di.quantity,
+                    }
+                    for di in d.items.all()
+                ],
+            }
+            for d in qs
         ]
+
         return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
     
     @transaction.atomic
     def post(self, request):
@@ -1231,18 +1249,14 @@ def create_grn(request):
 @csrf_exempt
 @api_view(["GET"])
 def product_stock_list(request):
-    products = Product.objects.filter(batches__stock__gt=0).distinct()
-    data = []
+    products = Product.objects.filter(product_batches__stock__gt=0).distinct() 
+    data = [] 
 
     for product in products:
-        total_stock = product.batches.aggregate(
-            total_stock=Sum("stock")
-        )["total_stock"] or 0
+        total_stock = ProductBatch.objects.filter(product=product).aggregate( total_stock=Sum("stock") )["total_stock"] or 0
 
-        if total_stock <= 0:
-            continue
 
-        latest_batch = product.batches.order_by("-created_at").first()
+        latest_batch = ProductBatch.objects.filter(product=product).order_by("-created_at").first()
 
         data.append({
             "product_id": product.product_id,
@@ -1254,13 +1268,14 @@ def product_stock_list(request):
             "mrp": latest_batch.mrp if latest_batch else 0,
         })
 
-    return JsonResponse({"success":True,"data":data},safe=False)
+    return JsonResponse({"success": True, "data": data}, safe=False)
 
 
 
-from django.db.models import Max
+
 @api_view(["POST"])
 def create_recipe_version(request):
+    from django.db.models import Max
     recipe_id = request.data.get("recipe_id")
     items_data = request.data.get("items", [])
 
@@ -1420,6 +1435,8 @@ def get_credit_notes(request):
     return Response({"success": False, "message": "Invalid note_type"}, status=400)
 
 
+
+
 class CategoryFilterView(APIView):
     def post(self,request):
         category_ids = request.data.get("categorys",[])
@@ -1440,6 +1457,7 @@ class CategoryFilterView(APIView):
         return Response({"success":True,"data":results})
     
 
+
 class PackageCreateAPIView(APIView):
 
     @transaction.atomic
@@ -1447,7 +1465,7 @@ class PackageCreateAPIView(APIView):
         data = request.data
 
         try:
-            # ✅ Create package ONCE
+            
             package = Packages.objects.create(
                 package_name=data.get("package_name"),
                 package_type=data.get("package_type"),
@@ -1486,10 +1504,9 @@ class PackageCreateAPIView(APIView):
 
                 package_items.append(package_item)
 
-            # ✅ Bulk create items only once
+            
             PackagesItem.objects.bulk_create(package_items)
 
-            # ✅ Apply discount once
             discount_percentage = package.discount or 0
             final_price = total_price - (total_price * discount_percentage / 100)
             package.price = final_price
@@ -1541,3 +1558,347 @@ class PackageCreateAPIView(APIView):
             })
 
         return Response({"success": True,"data": response},status=status.HTTP_200_OK)
+
+
+
+
+class StoreGrnAPIView(APIView):
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        try:
+            store = Store.objects.get(id=data.get("store"))
+            indent = Indent.objects.get(id=data.get("indent_id"))
+
+            grn = StoreGrn.objects.create(
+                store=store,
+                indent=indent,
+            )
+
+            net_amount = Decimal(0)
+            items = data.get("items", [])
+            for item in items:
+                product = Product.objects.get(id=item.get("product_id"))
+
+                accepted_qty = Decimal(item.get("accepted_qty", 0))
+                mrp = Decimal(item.get("mrp", 0))
+
+                amount = accepted_qty * mrp
+                net_amount += amount
+
+                StoreGrnItem.objects.create(
+                    store_grn=grn,
+                    product=product,
+                    batch_no=item.get("batch_no"),
+                    expiry_date=item.get("exp_date"),
+                    received_qty=item.get("received_qty", 0),
+                    rejected_qty=item.get("rejected_qty", 0),
+                    damaged_qty=item.get("damaged_qty", 0),
+                    excess_qty=item.get("excess_qty", 0),
+                    free_qty=item.get("free_qty", 0),
+                    amount=amount,
+                    reason=item.get("reason", ""),
+                    accepted_qty=accepted_qty,
+                    mrp=mrp,
+                    purchase_price=item.get("purchase_price", 0),
+                    gst_percent=item.get("gst_percent", 0),
+                    margin_price=item.get("margin", 0),
+                )
+
+            grn.net_amount = net_amount
+            grn.save(update_fields=["net_amount"])
+
+            indent.status = "completed"
+            indent.save(update_fields=["status"])
+
+            Dispatch.objects.filter(indent=indent).update(status="completed")
+
+            return Response({"success": True, "message": "GRN created and status updated"}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request, *args, **kwargs):
+        store_id = request.query_params.get("store_id")
+        status_filter = request.query_params.get("status")  # fixed typo
+
+        if not store_id:
+            return Response(
+                {"error": "store_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Base queryset
+        grns = (
+            StoreGrn.objects.filter(store_id=store_id)
+            .select_related("indent")
+            .prefetch_related(
+                Prefetch(
+                    "items",
+                    queryset=StoreGrnItem.objects.select_related("product").only(
+                        "id", "batch_no", "accepted_qty", "mrp",
+                        "purchase_price", "amount", "product__name",
+                    ),
+                )
+            )
+            .only("id", "grn_number", "status", "net_amount", "indent_id")
+            .order_by("-created_at")
+        )
+
+        # Apply status filter if provided
+        if status_filter:
+            grns = grns.filter(status=status_filter)
+
+        data = [
+            {
+                "grn_number": grn.grn_number,
+                "indent": grn.indent_id,
+                "status": grn.status,
+                "created_at":timezone.localtime(grn.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
+                "net_amount": str(grn.net_amount),
+                "items": [
+                    {
+                        "product": item.product.name if item.product else None,
+                        "batch_no": item.batch_no,
+                        "accepted_qty": item.accepted_qty,
+                        "mrp": str(item.mrp),
+                        "purchase_price": str(item.purchase_price),
+                        "amount": str(item.amount),
+                    }
+                    for item in grn.items.all()
+                ],
+            }
+            for grn in grns
+        ]
+
+        return Response({"success":True,"data": data}, status=status.HTTP_200_OK)
+
+
+
+
+class StoreStockAPIView(APIView):
+
+    def get(self, request, *args, **kwargs):
+        store_id = request.query_params.get("store_id")
+
+        if not store_id:
+            return Response({"success":True,"error": "store_id is required"})
+
+        products = (Product.objects.filter(stocks__store_id=store_id, stocks__stock__gt=0).distinct())
+
+        data = []
+        for product in products:
+
+            total_stock = (product.stocks.filter(store_id=store_id)
+                .aggregate(total=Sum("stock"))
+                ["total"] or 0)
+
+            if total_stock <= 0:
+                continue
+
+            latest_stock = (product.stocks.filter(store_id=store_id)
+                .order_by("-created_at")
+                .select_related("storegrn__indent")
+                .first()
+            )
+
+            data.append({
+                "product_id": product.id,
+                "product_name": product.name,
+                "brand_name": product.brand_name,
+                "uom": product.uom,
+                "stock": total_stock,
+                "mrp": str(latest_stock.mrp) if latest_stock else "0",
+                "margin_price": str(latest_stock.margin_price) if latest_stock else "0",
+                "grn_number": latest_stock.storegrn.grn_number if latest_stock else None,
+                "indent_number": (
+                    latest_stock.storegrn.indent.indent_number
+                    if latest_stock and latest_stock.storegrn.indent
+                    else None
+                ),
+            })
+
+        return Response(
+            {
+                "success": True,
+                "total_products": len(data),
+                "data": data,
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+
+class StoreStockList(APIView):
+    def get(request):
+        store_id = request.query_params.get("store_id")
+
+        if not store_id:
+            return JsonResponse({"success":True,"message": "store is is required "})
+        
+        page = int(request.query_params.get("page", 1))
+        page_size = int(request.query_params.get("page_size", 50))  
+        offset = (page - 1) * page_size
+        limit = offset + page_size
+
+        products_qs = Product.objects.filter(stocks__store_id=store_id, stocks__stock__gt=0).distinct()
+
+        total_products = products_qs.count()
+        products = products_qs[offset:limit]
+
+        data=[]
+
+        for product in products:
+            total_stock =(
+                Stock.objects.filter(store_id=store_id,product=product)
+                .aggregate(total_stock=Sum("stock"))["total_stock"]
+                or 0
+            )
+            latest_batch = (
+            Stock.objects.filter(store_id=store_id, product=product)
+            .order_by("-created_at")
+            .first())
+
+            data.append({
+            "product_id": product.product_id,
+            "name": product.name,
+            "brand_name": product.brand_name,
+            "uom": product.uom,
+            "total_stock": total_stock,
+            "mrp": latest_batch.mrp if latest_batch else 0,
+            "margin": latest_batch.margin_price if latest_batch else 0,})
+
+        return JsonResponse({"success":True,"message":"successfulyy get stock "})
+    
+@api_view(["GET"])
+def store_category_stock_list(request):
+    try:
+        store_id = request.query_params.get("store_id")
+        category_id = request.query_params.get("category_id")
+
+        if not store_id or not category_id:
+            return Response(
+                {"success": False, "message": "Both store_id and category_id are required"},
+                status=400
+            )
+
+        stock_data = []
+
+        # Get products that have stock > 0 in this store and category
+        products = Product.objects.filter(
+            stocks__store_id=store_id,
+            stocks__product__category_id=category_id,
+            stocks__stock__gt=0
+        ).distinct()
+
+        for product in products:
+            # Total stock across all batches
+            total_stock = (
+                Stock.objects.filter(store_id=store_id, product=product, stock__gt=0)
+                .aggregate(total=Sum("stock"))["total"] or 0
+            )
+
+            if total_stock <= 0:
+                continue
+
+            # Pick the batch that expires soonest (FEFO)
+            soonest_batch = (
+                Stock.objects.filter(store_id=store_id, product=product, stock__gt=0)
+                .order_by("expiry_date")   # earliest expiry first
+                .select_related("storegrn__indent")
+                .first()
+            )
+
+            if not soonest_batch:
+                continue
+
+            stock_data.append({
+                "product_id": product.product_id,
+                "product_name": product.name,
+                "brand_name": product.brand_name,
+                "HSNcode": product.hsn_Code,
+                "uom": product.uom,
+                "stock": total_stock,
+                "mrp": str(soonest_batch.mrp),
+                "margin_price": str(soonest_batch.margin_price),
+                "grn_number": soonest_batch.storegrn.grn_number if soonest_batch.storegrn else None,
+                "exp_date": soonest_batch.expiry_date,
+                "batch_no": soonest_batch.batch_no,
+                "stock_id": soonest_batch.id,
+                "indent_number": (
+                    soonest_batch.storegrn.indent.indent_number
+                    if soonest_batch.storegrn and soonest_batch.storegrn.indent
+                    else None
+                ),
+            })
+
+        return Response(
+            {"success": True, "count": len(stock_data), "data": stock_data},
+            status=200
+        )
+
+    except Exception as e:
+        return Response(
+            {"success": False, "message": f"Error fetching store/category stock: {str(e)}"},
+            status=400
+        )
+
+
+
+
+
+class StoreGrnReturnView(APIView):
+
+    @transaction.atomic
+    def post(self, request):
+        store_id = request.data.get("store_id")
+        reason = request.data.get("reason")
+        return_type = request.data.get("return_type")
+        items = request.data.get("products", [])
+
+        if not store_id or not return_type or not items:
+            return Response({"success": False, "message": "store_id, return_type and items are required"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        storegrn_return = StoreGrnReturn.objects.create(
+            store_id=store_id,
+            reason=reason,
+            return_type=return_type,
+            status="initiated"
+        )
+
+        for item in items:
+            stock_id = item.get("stock_id")
+            batch_no = item.get("batch_no")
+            return_qty = int(item.get("return_qty", 0))
+            amount = item.get("amount", 0)
+
+            stock = Stock.objects.get(id=stock_id, batch_no=batch_no, store_id=store_id)
+            if return_qty > stock.stock:
+                return Response({
+                    "success": False,
+                    "message": f"Return qty {return_qty} exceeds available stock {stock.stock} for batch {batch_no}"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            stock.stock -= return_qty
+            stock.save(update_fields=["stock"])
+
+            amount = return_qty * stock.mrp
+
+            StoreGrnReturnItem.objects.create(
+                storegrn_return=storegrn_return,
+                stock=stock,
+                batch_no=batch_no,
+                return_qty=return_qty,
+                amount=amount
+            )
+
+        return Response({
+            "success": True,
+            "message": "Store GRN return created successfully",
+            "storegrn_return_number": storegrn_return.storegrn_return_number
+        }, status=status.HTTP_201_CREATED)
+
+
+

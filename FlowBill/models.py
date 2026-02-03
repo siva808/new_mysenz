@@ -200,12 +200,12 @@ class UOM(models.Model):
         db_table= "uom"
 
 
-
 class GRN(models.Model):
+
     grn_number = models.CharField(max_length=50, unique=True)
-    purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="grns")
-    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE,null=True, blank=True)
-    status = models.CharField(max_length=20) 
+    purchase_order = models.ForeignKey(PurchaseOrder,on_delete=models.PROTECT,related_name="grns")
+    vendor = models.ForeignKey(Vendor,on_delete=models.SET_NULL,null=True,blank=True,related_name="grns")
+    status = models.CharField(max_length=20, db_index=True)
     invoice_date = models.DateField(null=True, blank=True)
     net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -216,62 +216,65 @@ class GRN(models.Model):
     class Meta:
         db_table = "grn"
         indexes = [
-          models.Index(fields= ["purchase_order"]),
-          models.Index(fields= ["status"]),
-          models.Index(fields= ["vendor"]),
-          ]
+            models.Index(fields=["purchase_order"], name="grn_po_idx"),
+            models.Index(fields=["status"], name="grn_status_idx"),
+            models.Index(fields=["vendor"], name="grn_vendor_idx"),
+        ]
+
+    def save(self, *args, **kwargs):
+        creating = self.pk is None
+        super().save(*args, **kwargs)
+
+        if creating and not self.grn_number:
+            self.grn_number = f"GRN-WH-{self.id:07d}"
+            super().save(update_fields=["grn_number"])
 
     def __str__(self):
-      return self.grn_number
-    
-    def save(self, *args, **kwargs): 
-        if not self.grn_number: 
-            super().save(*args, **kwargs) 
-            self.grn_number = f"GRN-WH-{self.id:07d}" 
-            super().save(update_fields=["grn_number"]) 
-        else: 
-            super().save(*args, **kwargs)
+        return self.grn_number
+
 
 
 
 class GRNItem(models.Model):
     grn = models.ForeignKey(GRN, on_delete=models.CASCADE, related_name="items")
-    product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL)
+    product = models.ForeignKey(Product,on_delete=models.SET_NULL,null=True,blank=True,related_name="grn_items")
     batch_no = models.CharField(max_length=50)
     manufacturing_date = models.DateField(null=True, blank=True)
     expiry_date = models.DateField(null=True, blank=True)
 
-    accepted_qty = models.IntegerField(blank=True, null=True)
-    received_qty = models.IntegerField(blank=True, null=True)
-    damaged_qty = models.IntegerField(blank=True, null=True)
-    excess_qty = models.IntegerField(blank=True, null=True)
-    free_qty = models.IntegerField(blank=True, null=True)
-    rejected_qty = models.IntegerField(default=0, blank=True, null=True)
+    accepted_qty = models.PositiveIntegerField(default=0)
+    received_qty = models.PositiveIntegerField(default=0)
+    damaged_qty = models.PositiveIntegerField(default=0)
+    excess_qty = models.PositiveIntegerField(default=0)
+    free_qty = models.PositiveIntegerField(default=0)
+    rejected_qty = models.PositiveIntegerField(default=0)
 
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     mrp = models.DecimalField(max_digits=10, decimal_places=2)
-    purchase_price = models.DecimalField(max_digits=10, decimal_places=2)  # vendor rate
-    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # % or INR
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2)
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     gst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     margin = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
-    reason = models.CharField(max_length=50, blank=True,null=True)
+    reason = models.CharField(max_length=50, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "grn_item"
-        indexes = [
-            models.Index(fields=["product", "batch_no"]),
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "batch_no", "grn"],
+                name="uniq_grn_product_batch"
+            )
         ]
-    
-    def calculate_margin(self):
-        mrp = Decimal(self.mrp)
-        purchase_price = Decimal(self.purchase_price)
-        return mrp - purchase_price
+        indexes = [
+            models.Index(fields=["product", "batch_no"], name="grnitem_prod_batch_idx"),
+        ]
 
     def save(self, *args, **kwargs):
-        self.margin = self.calculate_margin()
+        self.margin = self.mrp - self.purchase_price
         self.amount = self.purchase_price * self.accepted_qty
+
         super().save(*args, **kwargs)
 
         batch, created = ProductBatch.objects.get_or_create(
@@ -286,35 +289,45 @@ class GRNItem(models.Model):
                 "stock": self.accepted_qty,
             }
         )
-        batch.stock += self.accepted_qty
-        batch.save(update_fields=["stock"])
+
+        if not created:
+            batch.stock += self.accepted_qty
+            batch.save(update_fields=["stock"])
+
     def __str__(self):
-        name = self.product.name if self.product else "unknown"
-        return f"{self.grn.grn_number} | {name} | {self.accepted_qty}/{self.rejected_qty}"
+        product_name = self.product.name if self.product else "Unknown"
+        return f"{self.grn.grn_number} | {product_name} | {self.accepted_qty}"
+
 
 
 
 class ProductBatch(models.Model):
-    grn = models.ForeignKey(GRN, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="batches")
+    grn = models.ForeignKey(GRN, on_delete=models.CASCADE, related_name="batches")
+    product = models.ForeignKey(Product,on_delete=models.CASCADE,related_name="product_batches")
     batch_no = models.CharField(max_length=50)
     expiry_date = models.DateField(null=True, blank=True)
     mrp = models.DecimalField(max_digits=10, decimal_places=2)
-    margin_price = models.DecimalField(max_digits=10,decimal_places=2)
+    margin_price = models.DecimalField(max_digits=10, decimal_places=2)
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2)
+    gst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     stock = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
-
     class Meta:
         db_table = "product_batch"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "batch_no"],
+                name="uniq_product_batch"
+            )
+        ]
         indexes = [
-            models.Index(fields=["product", "batch_no"]),
-            models.Index(fields=[ "product"]),
+            models.Index(fields=["product"], name="productbatch_product_idx"),
         ]
 
     def __str__(self):
         return f"{self.product.name} | Batch {self.batch_no} | Stock {self.stock}"
+
 
 
 
@@ -505,6 +518,10 @@ class Packages(models.Model):
     class Meta:
         db_table = "packages"
 
+
+
+
+
 class PackagesItem(models.Model):
     packages = models.ForeignKey(Packages,on_delete=models.CASCADE,db_index=True)
     product = models.ForeignKey(Product,on_delete=models.CASCADE,blank=True,null=True)
@@ -519,27 +536,151 @@ class PackagesItem(models.Model):
 
 
 
+class StoreGrn(models.Model):
 
-
-# class StoreGrn(models.Model):
-#     grn_number = models.CharField(max_length=50, unique=True)
-#     indent = models.ForeignKey(Indent, on_delete=models.CASCADE, related_name="store_grns") 
-#     status = models.CharField(max_length=20, default="created") 
-#     received_date = models.DateField(auto_now_add=True) 
-#     net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0) 
-#     created_at = models.DateTimeField(auto_now_add=True) 
-#     updated_at = models.DateTimeField(auto_now=True)
-
-#     def save(self,*args, **kwargs):
-#         if not self.grn_number:
-#             super().save(*args,**kwargs)
-#             self.grn_number= f"GRN-ST-{self.id:07d}"
-#             super().save(update_fields=["grn_number"])
-#         else:
-#             super().save(*args,**kwargs)
-
-#     def __str__(self):
-#         return self.grn_number
+    grn_number = models.CharField(max_length=50, unique=True)
+    store = models.ForeignKey(Store,on_delete=models.CASCADE)
+    indent = models.ForeignKey(Indent, on_delete=models.CASCADE, related_name="store_grns") 
+    status = models.CharField(max_length=20, default="completed") 
+    net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0) 
+    created_at = models.DateTimeField(auto_now_add=True) 
     
-#     class Meta:
-#         db_table = "storegrn"
+    def save(self,*args, **kwargs):
+        if not self.grn_number:
+            super().save(*args,**kwargs)
+            self.grn_number= f"GRN-ST-{self.id:07d}"
+            super().save(update_fields=["grn_number"])
+        else:
+            super().save(*args,**kwargs)
+
+    def __str__(self):
+        return self.grn_number
+    
+    class Meta:
+        db_table = "storegrn"
+        indexes = [
+            models.Index(fields= ["indent"]),
+            models.Index(fields=["status"])
+        ]
+
+
+
+class StoreGrnItem(models.Model):
+
+    store_grn = models.ForeignKey(StoreGrn, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, blank=True, null=True)
+    batch_no = models.CharField(max_length=50)
+    expiry_date = models.DateField(null=True, blank=True)
+
+    accepted_qty = models.IntegerField(blank=True, null=True, default=0)
+    received_qty = models.IntegerField(blank=True, null=True, default=0)
+    damaged_qty = models.IntegerField(blank=True, null=True, default=0)
+    excess_qty = models.IntegerField(blank=True, null=True, default=0)
+    free_qty = models.IntegerField(blank=True, null=True, default=0)
+    rejected_qty = models.IntegerField(default=0, blank=True, null=True)
+
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    mrp = models.DecimalField(max_digits=10, decimal_places=2)
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2)  
+    gst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    margin_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    reason = models.CharField(max_length=50, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "store_grn_item"
+        indexes = [
+            models.Index(fields=["product", "batch_no"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.amount = (self.purchase_price or 0) * (self.accepted_qty or 0)
+        super().save(*args, **kwargs)
+
+        batch, created = Stock.objects.get_or_create(
+            store=self.store_grn.store,
+            storegrn=self.store_grn,   
+            product=self.product,
+            batch_no=self.batch_no,
+            defaults={
+                "expiry_date": self.expiry_date,
+                "mrp": self.mrp,
+                "purchase_price": self.purchase_price,
+                "margin_price": self.margin_price,
+                "gst_percent": self.gst_percent,
+                "stock": self.accepted_qty or 0,
+            }
+        )
+        if not created:
+            batch.stock += (self.accepted_qty or 0)
+            batch.save(update_fields=["stock"])
+
+
+
+class Stock(models.Model):
+    store = models.ForeignKey(Store, on_delete=models.CASCADE)
+    storegrn = models.ForeignKey(StoreGrn,on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="stocks")
+    batch_no = models.CharField(max_length=50)
+    expiry_date = models.DateField(null=True, blank=True)
+    mrp = models.DecimalField(max_digits=10, decimal_places=2)
+    margin_price = models.DecimalField(max_digits=10, decimal_places=2)
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2)
+    gst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    stock = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "stock"
+        indexes = [
+            models.Index(fields=["store", "product", "batch_no"]), 
+            models.Index(fields=["product"]),
+        ]
+
+    def __str__(self):
+        return f"{self.store.store_name} | {self.product.name} | Batch {self.batch_no} | Stock {self.stock}"
+
+
+
+
+
+class StoreGrnReturn(models.Model):
+    storegrn_return_number = models.CharField(max_length=50, unique=True)
+    status = models.CharField(max_length=20, default="initiated")
+    reason = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    store = models.ForeignKey(Store,on_delete=models.CASCADE)
+    return_type = models.CharField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "storegrn_return"
+        indexes = [
+            models.Index(fields=["store", "status"]),
+        ]
+
+    def __str__(self):
+        return self.storegrn_return_number
+
+    def save(self, *args, **kwargs):
+        if not self.storegrn_return_number:
+            super().save(*args, **kwargs)
+            self.storegrn_return_number = f"GRN-RET-{self.id:07d}ST"
+            super().save(update_fields=["storegrn_return_number"])
+        else:
+            super().save(*args, **kwargs)
+
+
+class StoreGrnReturnItem(models.Model):
+    storegrn_return = models.ForeignKey(StoreGrnReturn, on_delete=models.CASCADE, related_name="items")
+    stock = models.ForeignKey(Stock, on_delete=models.CASCADE)
+    batch_no = models.CharField(max_length=50)
+    return_qty = models.PositiveIntegerField()
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    class Meta:
+        db_table = "storegrn_return_item"
+        indexes = [
+            models.Index(fields=["storegrn_return"]),
+        ]
