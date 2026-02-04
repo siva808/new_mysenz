@@ -1771,6 +1771,8 @@ class StoreStockList(APIView):
 
         return JsonResponse({"success":True,"message":"successfulyy get stock "})
     
+
+
 @api_view(["GET"])
 def store_category_stock_list(request):
     try:
@@ -1785,12 +1787,7 @@ def store_category_stock_list(request):
 
         stock_data = []
 
-        # Get products that have stock > 0 in this store and category
-        products = Product.objects.filter(
-            stocks__store_id=store_id,
-            stocks__product__category_id=category_id,
-            stocks__stock__gt=0
-        ).distinct()
+        products = Product.objects.filter(stocks__store_id=store_id,stocks__product__category_id=category_id,stocks__stock__gt=0).distinct()
 
         for product in products:
             # Total stock across all batches
@@ -1894,11 +1891,174 @@ class StoreGrnReturnView(APIView):
                 amount=amount
             )
 
-        return Response({
-            "success": True,
-            "message": "Store GRN return created successfully",
-            "storegrn_return_number": storegrn_return.storegrn_return_number
-        }, status=status.HTTP_201_CREATED)
+        return Response({"success": True,"message": "Store GRN return created successfully","storegrn_return_number": storegrn_return.storegrn_return_number}, status=status.HTTP_201_CREATED)
+    
+
+
+    def get(self, request):
+
+        store_id = request.query_params.get("store_id")
+        status_filter = request.query_params.get("status")
+
+        if not store_id:
+            return Response({"success": False, "message": "store_id is required"},status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = StoreGrnReturn.objects.filter(store_id=store_id)
+
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        
+        queryset = queryset.select_related("store").prefetch_related("items__stock__product")
+
+        page = int(request.query_params.get("page", 1))
+        page_size = int(request.query_params.get("page_size", 1000))
+
+        start = (page - 1) * page_size
+        end = start + page_size
+
+        results = queryset[start:end]
+
+        data = []
+        for obj in results:
+            items_data = []
+            for item in obj.items.all():
+                product = item.stock.product  
+                items_data.append({
+                    "id": item.id,
+                    "stock_id": item.stock.id,
+                    "batch_no": item.batch_no,
+                    "return_qty": item.return_qty,
+                    "amount": str(item.amount),
+                    "product_id": product.product_id,
+                    "product_name": product.name,
+                    "hsn_code": product.hsn_Code,
+                })
+
+            data.append({
+                "id": obj.id,
+                "storegrn_return_number": obj.storegrn_return_number,
+                "status": obj.status,
+                "reason": obj.reason,
+                "return_type": obj.return_type,
+                "created_at": timezone.localtime(obj.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
+                "store_id": obj.store_id,
+                "products": items_data,
+            })
+
+        return Response({"success": True,"count": queryset.count(),"page": page,"page_size": page_size,"data": data}, status=status.HTTP_200_OK)
 
 
 
+from django.db.models import Sum, F
+from rest_framework.pagination import PageNumberPagination
+class LargeResultSetPagination(PageNumberPagination):
+    page_size = 200  
+    page_size_query_param = "page_size"
+    max_page_size = 1000  
+
+
+
+class StoreCategoryStockView(APIView):
+    pagination_class = LargeResultSetPagination
+
+    def get(self, request, *args, **kwargs):
+        store_id = request.query_params.get("store_id")
+        category_id = request.query_params.get("category_id")
+
+        if not store_id or not category_id:
+            return Response(
+                {"success": False, "message": "store_id and category_id are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        
+        products = (
+            Product.objects.filter(
+                stocks__store_id=store_id,
+                stocks__stock__gt=0,
+                category_id=category_id
+            )
+            .distinct()
+            .select_related("sub_category")   # FK relation
+            .prefetch_related("stocks")
+            .order_by("id")                   # stable pagination
+        )
+
+        data = []
+        for product in products:
+            total_stock = (
+                product.stocks.filter(store_id=store_id)
+                .aggregate(total=Sum("stock"))["total"] or 0
+            )
+            if total_stock <= 0:
+                continue
+
+            latest_stock = (
+                product.stocks.filter(store_id=store_id, stock__gt=0)
+                .order_by("expiry_date")  # FEFO
+                .select_related("storegrn__indent")
+                .first()
+            )
+            if not latest_stock:
+                continue
+
+            mrp = latest_stock.mrp or 0
+            margin = latest_stock.margin_price or 0
+
+            # Get discount % from sub_category
+            discount_percentage = product.sub_category.discount or 0
+
+            # Calculate maximum discount value and maximum value
+            max_discount_value = (margin * discount_percentage) / 100
+            max_value = mrp - max_discount_value
+
+            # Calculate effective discount percentage relative to MRP
+            discount_percentage_calculated = (
+                (max_discount_value / mrp) * 100 if mrp > 0 else 0
+            )
+
+            data.append({
+                "product_id": product.id,
+                "product_name": product.name,
+                "brand_name": product.brand_name,
+                "uom": product.uom,
+                "hsn_code": product.hsn_Code,
+                "molecule":product.molecule,
+                "stock": total_stock,
+                "mrp": str(mrp),
+                "margin_price": str(margin),
+                "discount_percentage": str(discount_percentage),          # from SubCategory
+                "max_discount_value": str(max_discount_value),            # amount
+                "max_value": str(max_value),                              # net price after discount
+                "discount_percentage_calculated": str(discount_percentage_calculated),  # % of MRP
+                "grn_number": latest_stock.storegrn.grn_number if latest_stock.storegrn else None,
+                "indent_number": (
+                    latest_stock.storegrn.indent.indent_number
+                    if latest_stock.storegrn and latest_stock.storegrn.indent
+                    else None
+                ),
+            })
+
+        return Response(
+            {
+                "success": True,
+                "total_products": len(data),
+                "data": data,
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+class CustomerByMobileView(APIView):
+    def get(self, request):
+        mobile = request.query_params.get("mobile")
+
+        customer = (Customer.objects.filter(contact=mobile).only("id", "name").first())
+
+        if not customer:
+            return Response(
+                {"success":False,"error": "Customer not found"},status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {"success":True,"id": customer.id, "name": customer.name},status=status.HTTP_200_OK)

@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField, JSONField
 import uuid
-from MySenzApp.models import Category,Store,SubCategory,Service
+from MySenzApp.models import *
 from decimal import Decimal 
 
 
@@ -684,3 +684,10 @@ class StoreGrnReturnItem(models.Model):
         indexes = [
             models.Index(fields=["storegrn_return"]),
         ]
+
+
+
+
+class Invoice(models.Model):
+    store = models.ForeignKey(Store,on_delete=models.CASCADE)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)

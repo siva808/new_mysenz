@@ -142,3 +142,6 @@ class RecipeSerializer(serializers.ModelSerializer):
         for item_data in items_data:
             Recipeiterm.objects.create(recipe=recipe, **item_data)
         return recipe   
+    
+
+

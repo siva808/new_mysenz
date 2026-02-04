@@ -47,7 +47,7 @@ class Customer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(AdminUser, on_delete=models.CASCADE, related_name="customer")
     name = models.CharField(max_length=200)
-    contact = models.CharField(max_length=20)
+    contact = models.CharField(max_length=20,db_index=True)
     address = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
