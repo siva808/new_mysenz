@@ -209,7 +209,7 @@ class GRN(models.Model):
     invoice_date = models.DateField(null=True, blank=True)
     net_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True,)
     updated_at = models.DateTimeField(auto_now=True)
     confirmed_at = models.DateTimeField(null=True, blank=True)
 
@@ -640,8 +640,6 @@ class Stock(models.Model):
 
     def __str__(self):
         return f"{self.store.store_name} | {self.product.name} | Batch {self.batch_no} | Stock {self.stock}"
-
-
 
 
 

@@ -33,7 +33,8 @@ CORS_ALLOW_CREDENTIALS = True
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 APPEND_SLASH=False
-ALLOWED_HOSTS = ['elixbillapi.pyolliv.com']
+# ALLOWED_HOSTS = ['elixbillapi.pyolliv.com']
+ALLOWED_HOSTS = ['192.168.1.47']
 
 
 # Application definition
@@ -118,16 +119,16 @@ import os
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        "AME" :"elixwel_flow",
-        "USER" :"elixwel_user",
-        "PASSWORD" : "Elixwel@123",
-        "HOST" : "localhost",
-        "PORT" : "5432",
-        # 'NAME': 'mysenz_db',
-        # 'USER': 'postgres',
-        # 'PASSWORD': 'Avis@143',
-        # 'HOST': 'localhost',
-        # 'PORT': '5432',
+        # "NAME" :"elixwel_flow",
+        # "USER" :"elixwel_user",
+        # "PASSWORD" : "Elixwel@123",
+        # "HOST" : "localhost",
+        # "PORT" : "5432",
+        'NAME': 'mysenz_db',
+        'USER': 'postgres',
+        'PASSWORD': 'Avis@143',
+        'HOST': 'localhost',
+        'PORT': '5432',
 
     }
 }
@@ -168,13 +169,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
+# STATICFILES_DIRS = [
+#     os.path.join(BASE_DIR, 'static'),
+# ]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
