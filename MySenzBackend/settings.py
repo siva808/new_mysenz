@@ -33,7 +33,7 @@ CORS_ALLOW_CREDENTIALS = True
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 APPEND_SLASH=False
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['elixbillapi.pyolliv.com']
 
 
 # Application definition
@@ -118,11 +118,17 @@ import os
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'mysenz_db',
-        'USER': 'postgres',
-        'PASSWORD': 'Avis@143',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        "DB_NAME" :"elixwel_flow",
+        "DB_USER" :"elixwel_user",
+        "DB_PASSWORD" : "Elixwel@123",
+        "DB_HOST" : "localhost",
+        "DB_PORT" : "5432",
+        # 'NAME': 'mysenz_db',
+        # 'USER': 'postgres',
+        # 'PASSWORD': 'Avis@143',
+        # 'HOST': 'localhost',
+        # 'PORT': '5432',
+
     }
 }
 
