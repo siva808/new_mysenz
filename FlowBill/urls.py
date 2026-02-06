@@ -32,7 +32,8 @@ urlpatterns = [
    path("store_stock_list/",store_category_stock_list),
    path("storegrn_return/",StoreGrnReturnView.as_view()),
    path("billing-stocklist/",StoreCategoryStockView.as_view()),
-   path("customer-get/",CustomerByMobileView.as_view())
+   path("customer-get/",CustomerByMobileView.as_view()),
+   path("store-billing/",InvoiceAPIView.as_view()),
  
 
 ]

@@ -28,6 +28,14 @@ import pytz
 
 IST = pytz.timezone("Asia/Kolkata")
 
+from django.db.models import Sum, F
+from rest_framework.pagination import PageNumberPagination
+class LargeResultSetPagination(PageNumberPagination):
+    page_size = 200  
+    page_size_query_param = "page_size"
+    max_page_size = 1000  
+
+
 
 class VendorAPIView(APIView):
 
@@ -85,6 +93,7 @@ class VendorAPIView(APIView):
         vendor.delete()
         return Response({"success": True, "message": "Vendor deleted"},status=status.HTTP_204_NO_CONTENT)
     
+
 
 
 class ProductAPIView(APIView):
@@ -171,6 +180,7 @@ class ProductAPIView(APIView):
             return Response({"success": True, "message": "Product deleted"}, status=status.HTTP_204_NO_CONTENT)
         except Product.DoesNotExist:
             return Response({"success": False, "error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
 
 
 
@@ -1802,7 +1812,7 @@ def store_category_stock_list(request):
             # Pick the batch that expires soonest (FEFO)
             soonest_batch = (
                 Stock.objects.filter(store_id=store_id, product=product, stock__gt=0)
-                .order_by("expiry_date")   # earliest expiry first
+                .order_by("expiry_date")  
                 .select_related("storegrn__indent")
                 .first()
             )
@@ -1840,7 +1850,6 @@ def store_category_stock_list(request):
             {"success": False, "message": f"Error fetching store/category stock: {str(e)}"},
             status=400
         )
-
 
 
 
@@ -1950,14 +1959,6 @@ class StoreGrnReturnView(APIView):
 
 
 
-from django.db.models import Sum, F
-from rest_framework.pagination import PageNumberPagination
-class LargeResultSetPagination(PageNumberPagination):
-    page_size = 200  
-    page_size_query_param = "page_size"
-    max_page_size = 1000  
-
-
 
 class StoreCategoryStockView(APIView):
     pagination_class = LargeResultSetPagination
@@ -1965,6 +1966,7 @@ class StoreCategoryStockView(APIView):
     def get(self, request, *args, **kwargs):
         store_id = request.query_params.get("store_id")
         category_id = request.query_params.get("category_id")
+        type = request.query_params.get("type")
 
         if not store_id or not category_id:
             return Response(
@@ -1972,93 +1974,293 @@ class StoreCategoryStockView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        
-        products = (
-            Product.objects.filter(
-                stocks__store_id=store_id,
-                stocks__stock__gt=0,
-                category_id=category_id
-            )
-            .distinct()
-            .select_related("sub_category")   # FK relation
-            .prefetch_related("stocks")
-            .order_by("id")                   # stable pagination
-        )
-
         data = []
-        for product in products:
-            total_stock = (
-                product.stocks.filter(store_id=store_id)
-                .aggregate(total=Sum("stock"))["total"] or 0
-            )
-            if total_stock <= 0:
-                continue
 
-            latest_stock = (
-                product.stocks.filter(store_id=store_id, stock__gt=0)
-                .order_by("expiry_date")  # FEFO
-                .select_related("storegrn__indent")
-                .first()
-            )
-            if not latest_stock:
-                continue
-
-            mrp = latest_stock.mrp or 0
-            margin = latest_stock.margin_price or 0
-
-            # Get discount % from sub_category
-            discount_percentage = product.sub_category.discount or 0
-
-            # Calculate maximum discount value and maximum value
-            max_discount_value = (margin * discount_percentage) / 100
-            max_value = mrp - max_discount_value
-
-            # Calculate effective discount percentage relative to MRP
-            discount_percentage_calculated = (
-                (max_discount_value / mrp) * 100 if mrp > 0 else 0
+        if type == "Product":
+            products = (
+                Product.objects.filter(
+                    stocks__store_id=store_id,
+                    stocks__stock__gt=0,
+                    category_id=category_id
+                )
+                .distinct()
+                .select_related("sub_category")
+                .prefetch_related("stocks")
+                .order_by("id")
             )
 
-            data.append({
-                "product_id": product.id,
-                "product_name": product.name,
-                "brand_name": product.brand_name,
-                "uom": product.uom,
-                "hsn_code": product.hsn_Code,
-                "molecule":product.molecule,
-                "stock": total_stock,
-                "mrp": str(mrp),
-                "margin_price": str(margin),
-                "discount_percentage": str(discount_percentage),          # from SubCategory
-                "max_discount_value": str(max_discount_value),            # amount
-                "max_value": str(max_value),                              # net price after discount
-                "discount_percentage_calculated": str(discount_percentage_calculated),  # % of MRP
-                "grn_number": latest_stock.storegrn.grn_number if latest_stock.storegrn else None,
-                "indent_number": (
-                    latest_stock.storegrn.indent.indent_number
-                    if latest_stock.storegrn and latest_stock.storegrn.indent
-                    else None
-                ),
-            })
+            for product in products:
+                total_stock = (
+                    product.stocks.filter(store_id=store_id)
+                    .aggregate(total=Sum("stock"))["total"] or 0
+                )
+                if total_stock <= 0:
+                    continue
+
+                latest_stock = (
+                    product.stocks.filter(store_id=store_id, stock__gt=0)
+                    .order_by("expiry_date")  # FEFO
+                    .select_related("storegrn__indent")
+                    .first()
+                )
+                if not latest_stock:
+                    continue
+
+                mrp = latest_stock.mrp or 0
+                margin = latest_stock.margin_price or 0
+                discount_percentage = product.sub_category.discount or 0
+
+                max_discount_value = (margin * discount_percentage) / 100
+                max_value = mrp - max_discount_value
+                discount_percentage_calculated = (
+                    (max_discount_value / mrp) * 100 if mrp > 0 else 0
+                )
+
+                data.append({
+                    "id": product.id,
+                    "product_id":product.product_id,
+                    "product_name": product.name,
+                    "brand_name": product.brand_name,
+                    "uom": product.uom,
+                    "HSNcode": product.hsn_Code,
+                    "molecule": product.molecule,
+                    "stock": total_stock,
+                    "mrp": float(mrp),
+                    "margin_price": float(margin),
+                    "discount_percentage": float(discount_percentage),
+                    "max_discount_value": float(max_discount_value),
+                    "max_value": float(max_value),
+                    "discount_percentage_calculated": float(discount_percentage_calculated),
+                    "grn_number": latest_stock.storegrn.grn_number if latest_stock.storegrn else None,
+                    "exp_date":latest_stock.expiry_date,
+                    "batch_no":latest_stock.batch_no,
+                    "indent_number": (
+                        latest_stock.storegrn.indent.indent_number
+                        if latest_stock.storegrn and latest_stock.storegrn.indent
+                        else None
+                    ),
+                })
+
+        elif type == "Service":
+            services = (
+                Service.objects.filter(
+                    category_id=category_id,
+                    is_active=True
+                )
+                .select_related("subcategory")
+                .order_by("id")
+            )
+
+            for service in services:
+                data.append({
+                    "service_id": service.id,
+                    "service_name": service.name,
+                    "description": service.description,
+                    "price": service.price,
+                    "subcategory": service.subcategory.name if service.subcategory else None,
+                    "show_in_ecom": service.show_in_ecom,
+                    "home_care_enabled": service.home_care_enabled,
+                    "instore_enabled": service.instore_enabled,
+                })
+
+        else:
+            return Response(
+                {"success": False, "message": "Invalid type. Must be 'product' or 'service'"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         return Response(
             {
                 "success": True,
-                "total_products": len(data),
+                "total_items": len(data),
                 "data": data,
             },
             status=status.HTTP_200_OK
         )
 
 
+
+
 class CustomerByMobileView(APIView):
+
     def get(self, request):
         mobile = request.query_params.get("mobile")
 
-        customer = (Customer.objects.filter(contact=mobile).only("id", "name").first())
+        customer = (Customer.objects.filter(contact=mobile).only("id", "name","contact").first())
 
         if not customer:
             return Response(
-                {"success":False,"error": "Customer not found"},status=status.HTTP_400_BAD_REQUEST)
+                {"success":False,"error": "Customer not found"})
 
         return Response(
-            {"success":True,"id": customer.id, "name": customer.name},status=status.HTTP_200_OK)
+            {"success":True,"id": customer.id, "name": customer.name,"mobile":customer.contact},status=status.HTTP_200_OK)
+
+
+
+
+class InvoiceAPIView(APIView):
+
+    def get(self, request):
+        store_id = request.query_params.get("store_id")
+        mobile_number = request.query_params.get("mobile_number")
+
+        if not store_id:
+            return JsonResponse(
+                {"success": False, "message": "store_id is required"},
+                status=400
+            )
+
+        # Base queryset: all invoices for the store
+        invoices_qs = Invoice.objects.filter(store_id=store_id)
+
+    
+        if mobile_number:
+            customer = Customer.objects.filter(contact=mobile_number).first() 
+            if not customer:
+                return JsonResponse(
+                    {"success": False, "message": "Customer not found"},
+                    status=404
+                )
+            invoices_qs = invoices_qs.filter(customer=customer)
+
+        invoices = invoices_qs.prefetch_related("items").order_by("-created_at")
+
+        data = []
+        for inv in invoices:
+            data.append({
+                "invoice_no": inv.invoice_no,
+                "status": inv.status,
+                "total": float(inv.total),
+                "created_at": inv.created_at,
+                "items": [
+                    {
+                        "item_type": i.item_type,
+                        "quantity": i.quantity,
+                        "mrp": float(i.mrp),
+                        "discount": float(i.discount),
+                        "selling_price": float(i.selling_price),
+                        "subtotal": float(i.Sub_total),
+                        "stock_id": i.stock_id,
+                        "service_id": i.service_id,
+                        "package_id": i.package_id,
+                    }
+                    for i in inv.items.all()
+                ],
+            })
+
+        return JsonResponse({"success": True, "data": data}, status=200)
+
+    def post(self, request):
+        store_id = request.data.get("store_id")
+        mobile_number = request.data.get("mobile_number")
+        payment_method = request.data.get("payment_method")
+        items = request.data.get("products", [])
+
+        if not store_id or not mobile_number or not items:
+            return JsonResponse({"success": False, "message": "store_id, mobile_number and items are required"},status=400)
+
+        customer = Customer.objects.filter(contact=mobile_number).first()
+
+        if not customer:
+            return JsonResponse(
+                {"success": False, "message": "Customer not found"},status=404)
+
+        with transaction.atomic():
+
+            invoice = Invoice.objects.create(
+                store_id=store_id,
+                customer=customer,
+                status="DRAFT",
+                payment_method=payment_method,
+                total=Decimal("0.00"),
+            )
+
+            invoice_items = []
+            total_amount = Decimal("0.00")
+
+            for item in items:
+                item_type = item.get("item_type")
+                qty = int(item.get("qty", 1))
+
+                if qty <= 0:
+                    return JsonResponse({"success": False, "message": "Quantity must be greater than 0"},status=400)
+
+                mrp = Decimal(item.get("mrp", 0))
+                discount = Decimal(item.get("discount", 0))
+                selling_price = Decimal(item.get("selling_price", 0))
+                subtotal = Decimal(item.get("subtotal", 0))
+
+                if item_type == "Product":
+                    batch_no = item.get("batch_no")
+                    product_id = item.get("product_id")
+                    stock = Stock.objects.select_for_update().filter( batch_no=batch_no, store_id=store_id ).first() 
+                    if stock.stock < qty:
+                        return JsonResponse(
+                            {"success": False,"message": "Insufficient stock","batch_no": stock.batch_no,"available": stock.stock},status=400)
+
+                    stock.stock -= qty
+                    stock.save(update_fields=["stock"])
+
+                    invoice_items.append(
+                        InvoiceItem(
+                            invoice=invoice,
+                            item_type=item_type,
+                            stock=stock,
+                            quantity=qty,
+                            mrp=mrp,
+                            discount=discount,
+                            selling_price=selling_price,
+                            Sub_total=subtotal,
+                        )
+                    )
+
+                elif item_type == "Service":
+
+                    invoice_items.append(
+                        InvoiceItem(
+                            invoice=invoice,
+                            item_type=item_type,
+                            service_id=item.get("id"),
+                            quantity=qty,
+                            mrp=mrp,
+                            discount=discount,
+                            selling_price=selling_price,
+                            Sub_total=subtotal,
+                        )
+                    )
+
+                elif item_type == "Package":
+                    invoice_items.append(
+                        InvoiceItem(
+                            invoice=invoice,
+                            item_type=item_type,
+                            package_id=item.get("package_id"),
+                            quantity=qty,
+                            mrp=mrp,
+                            discount=discount,
+                            selling_price=selling_price,
+                            Sub_total=subtotal,
+                        )
+                    )
+
+                else:
+                    return JsonResponse(
+                        {"success": False, "message": "Invalid item_type"},status=400)
+
+                total_amount += subtotal
+
+            InvoiceItem.objects.bulk_create(invoice_items)
+
+            invoice.total = total_amount
+            invoice.status = "FINAL"
+            invoice.save(update_fields=["total", "status"])
+
+        return JsonResponse(
+            {
+                "success": True,
+                "invoice_id": invoice.id,
+                "invoice_no": invoice.invoice_no,
+                "total": float(invoice.total),
+            },
+            status=201,
+        )

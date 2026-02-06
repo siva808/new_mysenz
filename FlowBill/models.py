@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.postgres.fields import ArrayField, JSONField
 import uuid
 from MySenzApp.models import *
-from decimal import Decimal 
+from django.core.validators import MinValueValidator
 
 
 class Vendor(models.Model):
@@ -691,3 +691,44 @@ class StoreGrnReturnItem(models.Model):
 class Invoice(models.Model):
     store = models.ForeignKey(Store,on_delete=models.CASCADE)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    invoice_no = models.CharField(max_length=30,blank=True, unique=True)
+    status = models.CharField(max_length=10,choices=[("DRAFT", "DRAFT"), ("FINAL", "FINAL")])
+    total = models.DecimalField(max_digits=10,decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True,null=True,blank=True)
+    payment_method = models.CharField(max_length=30,blank=True)
+
+
+    class Meta:
+        db_table = "invoice"
+        indexes = [models.Index(fields=["store", "customer", "invoice_no"]),
+                   models.Index(fields=["status"])]
+        
+    def save(self, *args, **kwargs):
+        creating = self.pk is None
+
+        super().save(*args, **kwargs)
+
+        if creating and not self.invoice_no:
+            self.invoice_no = f"ELX-CHN-{self.id:07d}"
+            super().save(update_fields=["invoice_no"])
+
+
+        
+
+class InvoiceItem(models.Model):
+    invoice = models.ForeignKey(Invoice,on_delete=models.PROTECT,related_name="items")
+    item_type = models.CharField(max_length=10)
+    stock = models.ForeignKey(Stock, null=True, blank=True, on_delete=models.CASCADE)
+    service = models.ForeignKey(Service, null=True, blank=True, on_delete=models.CASCADE)
+    package = models.ForeignKey(Packages, null=True, blank=True, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    mrp = models.DecimalField(max_digits=10, decimal_places=2,validators=[MinValueValidator(0)])
+    discount= models.DecimalField(max_digits=10, decimal_places=2, default=0,validators=[MinValueValidator(0)])
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2,validators=[MinValueValidator(0)])
+    Sub_total = models.DecimalField(max_digits=10, decimal_places=2,validators=[MinValueValidator(0)])
+
+    class Meta:
+        db_table = "invoice_item"
+        indexes = [models.Index(fields=["invoice", "stock"])]
+
+
