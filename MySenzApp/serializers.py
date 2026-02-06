@@ -3,38 +3,57 @@ from .models import *
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework.response import Response
+from rest_framework import request
 
 
 class TimestampMixin(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True, required=False)
 
+
 class AdminUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdminUser
         fields = ["id", "username", "email", "role", "is_active"]
-        
+
+
 class StoreConfigSerializer(serializers.Serializer):
-    storeName = serializers.CharField(max_length=150)
-    storeContact = serializers.CharField(max_length=20)
+    storeName = serializers.CharField()
+    storeContact = serializers.CharField()
     storeAddress = serializers.CharField()
-    managerName = serializers.CharField(max_length=150)
-    managerContact = serializers.CharField(max_length=20)
+    gstNumber = serializers.CharField()   
+    dlNumber = serializers.CharField()  
+    storeFormate = serializers.CharField() 
+    storeCategory = serializers.CharField()
+    gstCertificate = serializers.ImageField(required=False, allow_null=True)
+    dlImage = serializers.ImageField(required=False, allow_null=True)
+    FFSIImage = serializers.ImageField(required=False, allow_null=True)
+    clinicalLicenseImage = serializers.ImageField(required=False, allow_null=True)
+    fireSafetyLicenseImage = serializers.ImageField(required=False, allow_null=True)
     managerEmail = serializers.EmailField()
     managerPassword = serializers.CharField(write_only=True)
+    managerName = serializers.CharField()
+    managerContact = serializers.CharField()
+
 
 class StoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
-        fields = ["id", "store_name", "store_contact", "store_address"]
+        fields = ["id", "store_name", "store_contact", "store_address","store_formate","store_code","store_category",]
+
 
 class StoreManagerSerializer(serializers.ModelSerializer):
     store = StoreSerializer(read_only=True)
     manager_email = serializers.EmailField(source="user.email", read_only=True)
+   
+
     class Meta:
         model = StoreManager
-        fields = ["id", "manager_name", "manager_contact", "manager_email", "store","is_active"]
+        fields = ["id", "manager_name", "manager_contact", "manager_email", "store","is_active",]
+
         read_only_fields = ["created_at", "passcode"]
+    def update(self, instance, validated_data):
+        return super().update(instance, validated_data)
 
 class StoreManagerDetailSerializer(serializers.ModelSerializer):
     store = StoreSerializer(read_only=True)
@@ -50,8 +69,20 @@ class SubcategorySerilalizer(serializers.ModelSerializer):
     
     class Meta:
         model= SubCategory
-        fields =["id","category","category_name","name","is_active"]
+        fields =["id","category","category_name","name","discount","is_active"]
 
+
+class SubcategoryDetailSerilalizer(serializers.ModelSerializer):
+    
+    category_name = serializers.CharField(source="category.name", read_only=True)
+    discount =serializers.SerializerMethodField()
+    
+    class Meta:
+        model= SubCategory
+        fields =["id","category","category_name","name","discount","is_active"]
+
+    def get_discount(self, obj):
+         return f"{obj.discount.normalize()} %"
 
 
 class ServiceCategorySerializer(serializers.ModelSerializer):
@@ -63,7 +94,7 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
 class ServiceDetailsSerializer(serializers.ModelSerializer):
     category = ServiceCategorySerializer(read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
-        queryset=Category.objects.all(), write_only=True)
+    queryset=Category.objects.all(), write_only=True)
     subcategory = SubcategorySerilalizer(read_only=True) 
     subcategory_id = serializers.PrimaryKeyRelatedField( queryset=SubCategory.objects.all(), write_only=True)
 
@@ -85,6 +116,7 @@ class ServiceSerializer(serializers.ModelSerializer):
         model = Service
         fields = ["id","name", "description","price","category","show_in_ecom",
                   "home_care_enabled","instore_enabled","is_active","subcategory"]
+
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     class Meta:
@@ -114,23 +146,27 @@ class StoreManagerserviceSerializer(serializers.ModelSerializer):
         
 
 class StoreManagerServicesSerializer(serializers.ModelSerializer):
+
     category_name = serializers.CharField(source="category.name", read_only=True)
+    subcategory_name = serializers.CharField(source="subcategory.name", read_only=True)
 
     class Meta:
-        model = Mangerservices
-        fields = ["id", "manager", "category", "category_name", "services_name", "is_active"]
+        model = Storeservices
+        fields = ["id", "store", "category", "category_name","subcategory","subcategory_name", "services_name", "is_active"]
+
 class StoreManagerServicesSerializerupdate(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name")
 
     class Meta:
-        model = Mangerservices
-        fields = ["id", "manager", "category", "category_name", "services_name", "is_active"]
-        
+        model = Storeservices
+        fields = ["id", "store", "category", "category_name", "services_name", "is_active"]
+
+
 class ManagerServicesSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
 
     class Meta:
-        model = Mangerservices
+        model = Storeservices
         fields = ["category_name", "services_name", "is_active"]
 
     
@@ -147,9 +183,6 @@ class ManagerCategoryServiceSerializer(serializers.ModelSerializer):
             for c in obj.categories.all()
             for s in obj.services.all()
         ]
-
-
-
 
 
 User = get_user_model()
@@ -192,6 +225,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError("No account with this email")
         return value
     
+
 class BookingSearchSerializer(serializers.ModelSerializer):
     customer_name=serializers.CharField(source="user.name",read_only=True)
     store_name = serializers.CharField(source="stor.store_name",read_only=True)
@@ -232,10 +266,12 @@ class BookingSerializer(serializers.ModelSerializer):
        
         return instance
     
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ["id","name","is_active"]
+
 
 class BookingGetSerializer(serializers.ModelSerializer):
     user = CustomerSerializer(read_only=True)
@@ -256,10 +292,12 @@ class Bookingupdateserializer(serializers.ModelSerializer):
         model =Booking
         fields=["category","service","appoinment_type","status","update_at"]
     
+
 class CustomerSerilaizer(serializers.ModelSerializer):
     class meta:
         model=Customer
         fields=["id","name","contact","address","create_at"]
+
 
 class BookingDetailsSerializer(serializers.ModelSerializer):
     customer=CustomerSerilaizer(read_only=True)
@@ -268,6 +306,7 @@ class BookingDetailsSerializer(serializers.ModelSerializer):
         fields = ["booking_id","service","category",""]
         read_only_field=["customer_name","customer_email"]
         
+
 class BookingDashboardSerializer(serializers.ModelSerializer):
     service_names = serializers.SerializerMethodField()
     customer_name = serializers.SerializerMethodField()
@@ -317,3 +356,21 @@ class BookingDashboardSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["booking_id", "booking_date"]
 
+
+
+class StorePartnerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StorePartner
+        fields = "__all__"
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+
+        # Inject files from request.FILES
+        validated_data["partner_adhar_image"] = request.FILES.get("partner_adhar_image")
+        validated_data["partner_pan_image"] = request.FILES.get("partner_pan_image")
+        validated_data["company_gst_certificate"] = request.FILES.get("company_gst_certificate")
+        validated_data["company_pan_image"] = request.FILES.get("company_pan_image")
+        validated_data["incorporation_certificate"] = request.FILES.get("incorporation_certificate")
+
+        return super().create(validated_data)

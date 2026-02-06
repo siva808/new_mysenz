@@ -15,7 +15,25 @@ urlpatterns = [
    path("get_po_details/",get_po_details,name="get_po_details"),
    path("update_po_status/",po_update_status,name="update_po_status"),
    path("update_indent/",update_indent,name="update_indent"),
-   path("UOMdropdown/",UOMdropdown,name="UOMdropdown")
+   path("UOMdropdown/",UOMdropdown,name="UOMdropdown"),
+   path("create-grn/", create_grn),
+   path("get_grn/",GRNView.as_view()),
+   path("get_product_stock/", product_stock_list),
+   path("dispatch_order/", DispatchAPIView.as_view()),
+   path("recipe-view/", RecipeAPIView.as_view()),
+   path("create_recipe_version/", create_recipe_version),
+   path("get_vendor_grn/",get_vendor_stock),
+   path("wh-grn-return/",GRNReturnAPIView.as_view()),
+   path("get_vendor_creditnote/",get_credit_notes),
+   path("get_service_product/",CategoryFilterView.as_view()),
+   path("package-apiview/",PackageCreateAPIView.as_view()),
+   path("store-grn/",StoreGrnAPIView.as_view()),
+   path("store-stock/",StoreStockAPIView.as_view()),
+   path("store_stock_list/",store_category_stock_list),
+   path("storegrn_return/",StoreGrnReturnView.as_view()),
+   path("billing-stocklist/",StoreCategoryStockView.as_view()),
+   path("customer-get/",CustomerByMobileView.as_view()),
+   path("store-billing/",InvoiceAPIView.as_view()),
+ 
 
-   
 ]

@@ -1,50 +1,24 @@
-from .serializers import *
-from .models import *
-from .notification import NotificationService
+from attrs import field
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status,generics,permissions
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
+from rest_framework.parsers import JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.db import transaction 
-from .crud import *
-from rest_framework.parsers import JSONParser
 from django.db.models import Count
+from .crud import *
+from .serializers import *
+from .models import *
+from .notification import NotificationService
 import json 
+from datetime import date, timedelta
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])   
-def get_store_manager_profile(request):
-    try:
-        store_manager = StoreManager.objects.get(user=request.user)
-        serializer = StoreManagerSerializer(store_manager)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    except StoreManager.DoesNotExist:
-        return Response({"success": False, "message":"No StoreManager profile found for this user"})
-    
 
-class StoreManagerListView(generics.ListAPIView):
-    serializer_class = StoreManagerDetailSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        return StoreManager.objects.all()
-
-    def list(self, request, *args, **kwargs):
-        try:
-            queryset = self.get_queryset()
-            serializer = self.get_serializer(queryset, many=True)
-            return Response({
-                "success": True,
-                "message": "Store managers fetched successfully",
-                "data": serializer.data
-            }, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"success": False,"message": "Failed to fetch store managers","errors": str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class CategoryListView(generics.ListAPIView):
     serializer_class = ServiceCategorySerializer
@@ -64,111 +38,48 @@ class CategoryListView(generics.ListAPIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
+
+class StoreManagerView(APIView):
     
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def create_store_manager(request):
-    try:
-        details_raw = request.data.get("details")
-        details = json.loads(details_raw) if isinstance(details_raw, str) else details_raw
-
-        serializer = StoreConfigSerializer(data=details)
-        if not serializer.is_valid():
-            return Response({
-                "success": False,
-                "message": "Validation failed",
-                "errors": serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        data = serializer.validated_data
-
-        store = Store.objects.create(
-            store_name=data["storeName"],
-            store_contact=data["storeContact"],
-            store_address=data["storeAddress"],
-            gst=data.get("gst"),
-            gst_certificate=request.FILES.get("gstCertificate"),  # ✅ handle file uploads
-            dl_image=request.FILES.get("dlImage"),
-            FFSI_image=request.FILES.get("ffsiImage")
-        )
-
-        manager_user = AdminUser.objects.create_user(
-            email=data["managerEmail"],
-            password=data["managerPassword"],
-            role="manager"
-        )
-
-        store_manager = StoreManager.objects.create(
-            store=store,
-            user=manager_user,
-            manager_name=data["managerName"],
-            manager_contact=data["managerContact"]
-        )
-
-        return Response({
-            "success": True,
-            "message": "StoreManager created successfully",
-            "store": StoreSerializer(store).data,
-            "manager": StoreManagerSerializer(store_manager).data
-        }, status=status.HTTP_201_CREATED)
-
-    except Exception as e:
-        return Response({
-            "success": False,
-            "message": "Unexpected error occurred",
-            "details": str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        
-class StoreManagerDetailView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
     def get(self, request):
-        try:
-            uuid = request.query_params.get("uuid")
-            if not uuid:
-                return Response({"success": False,"message": "UUID query parameter is required"})
 
-            manager = get_object_or_404(StoreManager, id=uuid)
+        manager_id = request.data.get("manager_id")
+
+        if manager_id:
+            manager = StoreManager.objects.filter(id=manager_id).first()
             serializer = StoreManagerDetailSerializer(manager)
-
-            return Response({"success":True,"message": "success","data": serializer.data
-            })
-
-        except StoreManager.DoesNotExist:
-            return Response({"success": False,"message": "Manager not found"})
-
-        except Exception as e:
-            return Response({"success": False,"message": str(e)
-            })
+            return Response({"success":True,"data": serializer.data})
         
-class UpdateStoreManagerActiveView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+        managers = StoreManager.objects.all()
+        serializer = StoreManagerDetailSerializer(managers, many=True)
+        return Response({"success":True,"data": serializer.data})
+    
+    def put(self, request):
+        manager_id = request.data.get("manager_id")
 
-    def patch(self, request):
-        manager_id = request.data.get("managerId")
-        active_type = request.data.get("activeType") 
+        manager = StoreManager.objects.filter(id=manager_id).first()
+        serializer = StoreManagerSerializer(manager, data=request.data, partial=True)
+        storeserializer = StoreSerializer(manager.store, data=request.data, partial=True)
 
-        if manager_id is None or active_type is None:
-            return Response({"success": False, "message": "managerId and activeType are required"})
+        if serializer.is_valid():
 
-        manager = get_object_or_404(StoreManager, id=manager_id)
-        manager.is_active = bool(active_type)
-        manager.save()
+            with transaction.atomic():
+                serializer.save()
 
-        serializer = StoreManagerDetailSerializer(manager)
-        return Response({
-            "success": True,
-            "message": f"Manager {'activated' if manager.is_active else 'deactivated'} successfully",
-            "data": serializer.data
-        })
+                if any(field in request.data for field in ["store_name", "store_contact", "store_address"]):
+                    if storeserializer.is_valid():
+                        storeserializer.save()
+                    else:
+                        return Response({"success": False,"message": "Store validation failed","errors": storeserializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"success": True,"message": "Store Manager updated successfully","data": serializer.data}, status=status.HTTP_200_OK)
+        return Response({"success": False,"message": "Validation failed","errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
     
 
 class CategoryAPIView(APIView):
-    def get(self, request):
 
+    def get(self, request):
         category_id = request.query_params.get("id")
 
         try:
@@ -188,67 +99,70 @@ class CategoryAPIView(APIView):
             return Response({"success": False,"message": f"Error retrieving category: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
     def post(self, request):
         serializer = ServiceCategorySerializer(data=request.data)
+
         if serializer.is_valid():
             serializer.save()
-            return Response({
-                "success": True,"message": "Category created successfully","data": serializer.data
-            }, status=status.HTTP_201_CREATED)
-        return Response({"success": False,"message": "Validation failed",
-            "errors": serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({"success": True,"message": "Category created successfully"}, status=status.HTTP_201_CREATED)
+        return Response({"success": False,"message": "Validation failed","errors": serializer.errors},status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request):
         category_id = request.query_params.get("id")
+
         if not category_id:
-            return Response({"success": False,"message": "id query parameter required"
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"success": False,"message": "id query parameter required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             category = get_object_or_404(Category, pk=category_id)
             serializer = ServiceCategorySerializer(category, data=request.data)
+
             if serializer.is_valid():
                 serializer.save()
-                return Response({"success": True,"message": "Category updated successfully",
-                    "data": serializer.data
-                }, status=status.HTTP_200_OK)
-            return Response({"success": False,"message": "Validation failed","errors": serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"success": True,"message": "Category updated successfully"}, status=status.HTTP_200_OK)
+            return Response({"success": False,"message": "Validation failed","errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        
         except Exception as e:
-            return Response({"success": False,"message": f"Error updating category: {str(e)}"
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"success": False,"message": f"Error updating category: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request):
         category_id = request.query_params.get("id")
+
         if not category_id:
-            return Response({"success": False,"message": "id query parameter required"
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"success": False,"message": "id query parameter required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             category = get_object_or_404(Category, pk=category_id)
             category.delete()
-            return Response({"success": True,"message": "Category deleted successfully"
-            }, status=status.HTTP_200_OK)
+
+            return Response({"success": True,"message": "Category deleted successfully"}, status=status.HTTP_200_OK)
+        
         except Exception as e:
-            return Response({"success": False,"message": f"Error deleting category: {str(e)}"
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"success": False,"message": f"Error deleting category: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
 class ServiceAPIView(APIView):
-    def get(self, request):
-        category_name = request.query_params.get("name")
-        if category_name:
-            category = get_object_or_404(Service, name__iexact=category_name)
-            serializer = ServiceDetailsSerializer(category)
-            return Response({"success": True,"message": "Services retrieved successfully","data": serializer.data
-            }, status=status.HTTP_200_OK)
 
+    def get(self, request):
+        category_id = request.query_params.get("category_id")
+        subcategory = request.query_params.get("subcategory_id")
+
+        if category_id:
+            services = Service.objects.filter(category_id=category_id)
+            serializer = ServiceDetailsSerializer(services, many=True)
+
+            return Response({"success": True,"message": "Services retrieved successfully","data": serializer.data}, status=status.HTTP_200_OK)
+        
+        if subcategory:
+            services = Service.objects.filter(subcategory_id=subcategory)
+            serializer = ServiceDetailsSerializer(services, many=True)
+            return Response({"success": True,"message": "Services retrieved successfully","data": serializer.data}, status=status.HTTP_200_OK)
+        
         categories = Service.objects.all().order_by("id")
         serializer = ServiceDetailsSerializer(categories, many=True)
-        return Response({"success": True,"message": "All Services retrieved successfully",
-            "data": serializer.data
-        }, status=status.HTTP_200_OK)
+        return Response({"success": True,"message": "All Services retrieved successfully","data": serializer.data}, status=status.HTTP_200_OK)
 
     def post(self, request):
         serializer = ServiceCreateSerializer(data=request.data)
@@ -290,65 +204,65 @@ class ServiceAPIView(APIView):
 class ManagerServiceAPIView(APIView):
 
     def post(self, request):
-        manager_id = request.data.get("manager")
-        category_name = request.data.get("category_name")
+        store_id = request.data.get("store_id")
+        category_id = request.data.get("category_id")
+        subcategory = request.data.get("subcategory_id")
         services_name = request.data.get("services_name", [])
 
-        if not manager_id or not category_name:
-            return Response({
-                "success": False,
-                "message": "manager and category_name are required"
-            }, status=status.HTTP_400_BAD_REQUEST)
+        if not store_id or not category_id:
+            return Response({"success": False,"message": "store_id and category_name are required"},status=status.HTTP_400_BAD_REQUEST)
 
         try:
             with transaction.atomic():
-                category = get_object_or_404(Category, name=category_name)
+                category = Category.objects.get(id=category_id)
 
-                obj, created = Mangerservices.objects.get_or_create(
-                    manager_id=manager_id,
-                    category=category,
-                    defaults={"services_name": services_name}
-                )
+                obj, created = Storeservices.objects.get_or_create( store_id=store_id, category=category, 
+                                                                     subcategory_id=subcategory, defaults={"services_name": services_name} )
 
                 if not created:
-                    return Response({
-                        "success": False,
-                        "message": "Service already exists for this manager",
-                        "data": StoreManagerServicesSerializer(obj).data
-                    }, status=status.HTTP_208_ALREADY_REPORTED)
+                    return Response({"success": False,"message": "Service already exists for this manager",}, status=status.HTTP_208_ALREADY_REPORTED)
 
-                return Response({
-                    "success": True,
-                    "message": "Manager Service created successfully",
-                    "data": StoreManagerServicesSerializer(obj).data
-                }, status=status.HTTP_201_CREATED)
+                return Response({"success": True,"message": "Manager Service created successfully"}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            return Response({
-                "success": False,
-                "message": "Failed to create service",
-                "error": str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"success": False,"message": "Failed to create service","error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
     def get(self, request):
-        manager_id = request.query_params.get("manager_id")
-        if manager_id:
-            services = Mangerservices.objects.filter(manager__id=manager_id)
+        store_id = request.query_params.get("store_id")
+
+        if store_id:
+            services = Storeservices.objects.filter(store_id=store_id)
         else:
-            services = Mangerservices.objects.all()
+            services = Storeservices.objects.all()
 
         serializer = StoreManagerServicesSerializer(services, many=True)
-        return Response({
-                "success": True,
-                "message": "Manager Services retrieved successfully",
-                "data": serializer.data
-            }, status=status.HTTP_200_OK)
+        return Response({"success": True,"message": "Manager Services retrieved successfully","data": serializer.data}, status=status.HTTP_200_OK)
     
 
 
-        
-from datetime import date, timedelta
+class UpdateBookingAPI(APIView):
+    def put(self, request):
+        booking_id = request.data.get("booking_id")
+
+        if not booking_id:
+            return Response({"sucess":False,"error": "booking_id is required"}, status=400)
+
+        try:
+            booking = Booking.objects.get(booking_id=booking_id)
+        except Booking.DoesNotExist:
+            return Response({"sucess":False,"error": "Booking not found"}, status=404)
+
+        serializer = BookingSerializer(booking, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"sucess":True,"message": "Booking updated"}, status=200)
+
+        return Response(serializer.errors, status=400)
+    
+
+
+
 class BookingSearchView(APIView):
 
     def post(self, request):
@@ -424,26 +338,34 @@ class BookingSearchView(APIView):
 @api_view(["PUT"])
 def update_manager_services(request):
     try:
-        manager_id = request.data.get("manager_id")     
+        store_id = request.data.get("store_id")     
         category_id = request.data.get("category_id")
+        subcategory_id = request.data.get("subcategory_id")
         services_name = request.data.get("services_name")
         is_active = request.data.get("is_active")
 
-        if not manager_id or not category_id:
+        if not store_id or not category_id:
             return Response(
-                {"sucess":False,"error": "manager_id and category_id are required"},
+                {"success": False, "error": "store_id and category_id are required"},
                 status=400
             )
 
         try:
             category = Category.objects.get(id=category_id)
         except Category.DoesNotExist:
-            return Response({"sucess":False,"error": "Category not found"})
+            return Response({"success": False, "error": "Category not found"}, status=404)
 
         try:
-            manager_service = Mangerservices.objects.get(manager_id=manager_id,category=category)
-        except Mangerservices.DoesNotExist:
-            return Response({"sucess":False,"error": "Manager service not found"})
+            lookup = {
+                "store_id": store_id,
+                "category": category
+            }
+            if subcategory_id:
+                lookup["subcategory_id"] = subcategory_id
+
+            manager_service = Storeservices.objects.get(**lookup)
+        except Storeservices.DoesNotExist:
+            return Response({"success": False, "error": "Manager service not found"}, status=404)
 
         if services_name is not None:
             manager_service.services_name = services_name
@@ -454,11 +376,13 @@ def update_manager_services(request):
         manager_service.save()
 
         return Response(
-            { "success": True,
+            {
+                "success": True,
                 "message": "Manager service updated successfully",
                 "data": {
-                    "manager_id": manager_id,
+                    "store_id": store_id,
                     "category": category_id,
+                    "subcategory_id": subcategory_id,
                     "services_name": manager_service.services_name,
                     "is_active": manager_service.is_active,
                 }
@@ -467,8 +391,7 @@ def update_manager_services(request):
         )
 
     except Exception as e:
-        return Response({"sucess":False,"error": str(e)}, status=500)
-   
+        return Response({"success": False, "error": str(e)}, status=500)
 
 
 @api_view(["POST"])
@@ -511,58 +434,71 @@ def category_booking_count(request):
     
     json_request = JSONParser().parse(request)
     store_id = json_request.get("store_id")
-    category_id = json_request.get("category")
+    category_id = json_request.get("category_id")
+    booking_id = json_request.get("booking_id")
+    store_uuid = uuid.UUID(store_id)
 
-    try:
-        store_uuid = uuid.UUID(store_id)
-    except:
-        return Response({"success": False,"message": "Invalid UUID format"})
+    if store_id and not category_id and not booking_id:
+        service = Storeservices.objects.filter(store_id=store_uuid)
+        booking_count = Booking.objects.filter(store__id=store_uuid).values('category').annotate(count=Count('category'))
+        data = []
+        for serv in service:
+            count = 0
+            for bc in booking_count:
+                if serv.category.id == bc['category']:
+                    count = bc['count']
+                    break
+            data.append({
+                'category_id': serv.category.id,
+                'category_name': serv.category.name,
+                'booking_count': count
+            })
+        return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+    if store_id and category_id and not booking_id:
+        service = Storeservices.objects.filter(store_id=store_uuid, category__id=category_id)
+        booking_count = Booking.objects.filter(store__id=store_uuid, category__id=category_id).values('category').annotate(count=Count('category'))
+        data = []
+        serializer = StoreManagerServicesSerializer(service, many=True)
+        for serv in service:   
+            count = 0
+            for bc in booking_count:
+                if serv.category.id == bc['category']:
+                    count = bc['count']
+                    break
+                
+            data.append({
+                'category_id': serv.category.id,
+                'category_name': serv.category.name,
+                'booking_count': count,
+                'booking_details': serializer.data
+            })
+            return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+       
+    if store_id and category_id and booking_id:
+        service = Storeservices.objects.filter(store_id=store_uuid, category__id=category_id)
+        booking_count = Booking.objects.filter(store__id=store_uuid, category__id=category_id, booking_id=booking_id).values('category').annotate(count=Count('category'))
+        data = []
+        for serv in service:   
+            count = 0
+            for bc in booking_count:
+                if serv.category.id == bc['category']:
+                    count = bc['count']
+                    break
+            data.append({
+                'category_id': serv.category.id,
+                'category_name': serv.category.name,
+                'booking_count': count
+            })
 
-    bookings = Booking.objects.filter(store__id=store_uuid,)
-
-    if category_id:
-        bookings = bookings.filter(category__id=category_id)
-        serializer = BookingGetSerializer(bookings, many=True)
-        return Response({
-            "success": True,
-            "message": "Booking details retrieved successfully",
-            "data": serializer.data
-        }, status=status.HTTP_200_OK)
     
-    if category_id:
-        bookings = bookings.filter(category__id=category_id)
-    category_counts = (
-        bookings.values("category__id", "category__name")
-        .annotate(count=Count("booking_id"))
-        .order_by("category__name")
-    )
-    
-
-    return Response({"success": True,"message": "Booking count retrieved successfully",
-        "data": {"booking_count": list(category_counts)}
-    }, status=status.HTTP_200_OK)
+        #data = service.values('category__name','category__id')
 
 
 
-class UpdateBookingAPI(APIView):
-    def put(self, request):
-        booking_id = request.data.get("booking_id")
+        return Response({"success": True, "data": data}, status=status.HTTP_200_OK) 
 
-        if not booking_id:
-            return Response({"sucess":False,"error": "booking_id is required"}, status=400)
 
-        try:
-            booking = Booking.objects.get(booking_id=booking_id)
-        except Booking.DoesNotExist:
-            return Response({"sucess":False,"error": "Booking not found"}, status=404)
 
-        serializer = BookingSerializer(booking, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({"sucess":True,"message": "Booking updated"}, status=200)
-
-        return Response(serializer.errors, status=400)
-    
 
 @api_view(["PUT"])
 def update_manager_booking(request):
@@ -657,3 +593,60 @@ def get_services_by_categoryy(request):
         )
     
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])   
+def get_store_manager_profile(request):
+    try:
+        store_manager = StoreManager.objects.get(user=request.user)
+        serializer = StoreManagerSerializer(store_manager)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except StoreManager.DoesNotExist:
+        return Response({"success": False, "message":"No StoreManager profile found for this user"})
+    
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_store_manager(request):
+    try:
+        details_raw = request.data.get("details")
+        details = json.loads(details_raw) if isinstance(details_raw, str) else details_raw
+
+        serializer = StoreConfigSerializer(data=details)
+        if not serializer.is_valid():
+            return Response({"success": False,"message": "Validation failed","errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+
+        store = Store.objects.create(
+            store_name=data["storeName"],
+            store_contact=data["storeContact"],
+            store_address=data["storeAddress"],
+            gst=data["gstNumber"],
+            dl=data["dlNumber"],
+            store_formate=data["storeFormate"],
+            store_category=data["storeCategory"],
+            gst_certificate=request.FILES.get("gstCertificate"), 
+            dl_image=request.FILES.get("dlCertificate"),
+            FFSI_image=request.FILES.get("fssaiLicense"),
+            clinicalLicense_image=request.FILES.get("clinicalLicense"),
+            fireSafetyLicense_image=request.FILES.get("fireSafetyLicense"),
+        )
+
+        manager_user = AdminUser.objects.create_user(
+            email=data["managerEmail"],
+            password=data["managerPassword"],
+            role="manager"
+        )
+
+        store_manager = StoreManager.objects.create(
+            store=store,
+            user=manager_user,
+            manager_name=data["managerName"],
+            manager_contact=data["managerContact"]
+        )
+
+        return Response({"success": True,"message": "StoreManager created successfully"})
+
+    except Exception as e:
+        return Response({"success": False,"message": "Unexpected error occurred","details": str(e)
+        },status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -107,3 +107,7 @@ for _ in range(200):
     t.dot(random.randint(4,12))
     t.goto(random.randint(-300,200),
            random.randint(-200,200))
+    
+
+
+        

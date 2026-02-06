@@ -5,6 +5,8 @@ from datetime import date
 from MySenzApp.models import PurchaseOrder, PurchaseOrderItem, Product, Medicine
 from .models import GRN, GRNItem
 from .utils import next_id
+import csv
+from io import TextIOWrapper
 
 
 class GRNError(Exception):
@@ -211,3 +213,7 @@ def create_branch_grn_from_dispatch(dispatch_id: int, rows: list, request_id: st
     grn.save(update_fields=["status", "confirmed_at"])
     return grn
 
+def csv_to_json(file_obj):
+    csv_file = TextIOWrapper(file_obj.file, encoding="utf-8")
+    reader = csv.DictReader(csv_file)
+    return list(reader)

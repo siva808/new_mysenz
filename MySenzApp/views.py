@@ -1,24 +1,22 @@
-from .models import *
-from .serializers import *
-from rest_framework.exceptions import NotFound
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
-from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.core.mail import send_mail
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.shortcuts import get_object_or_404
+from django.contrib.auth import authenticate
+from .models import *
+from .serializers import *
 
 token_generator = PasswordResetTokenGenerator()
+
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -39,6 +37,7 @@ def admin_login(request):
         if hasattr(user, "store_manager"):
             username = user.store_manager.manager_name
             manager_id = str(user.store_manager.id)
+           
 
             if hasattr(user.store_manager, "store") and user.store_manager.store:
                 store_id = str(user.store_manager.store.id)
@@ -61,6 +60,7 @@ def admin_login(request):
 
     return Response({"success": False, "message": "Invalid credentials"})
 
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def forgot_password(request):
@@ -81,6 +81,7 @@ def forgot_password(request):
 
     return Response({"success": True, "message": "Password reset link sent"})
 
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def reset_password(request, uidb64, token):
@@ -100,6 +101,7 @@ def reset_password(request, uidb64, token):
     user.set_password(new_password)
     user.save()
     return Response({"success": True, "message": "Password reset successful"})
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -143,6 +145,7 @@ def get_dashboard_url(role):
     else:
         return "/dashboard/customer"
 
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_user(request):
@@ -165,6 +168,25 @@ def create_user(request):
             "role": user.role
         }
     })
+
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def bookingdropdown(request):
+    #data = list(BookingStatus.objects.values("id", "status"))
+    data = list(BookingStatus.objects.values_list("status", flat=True))
+    return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def paymentdropdown(request):
+    #data = list(BookingStatus.objects.values("id", "status"))
+    data = list(PaymentStatus.objects.values_list("status", flat=True))
+    return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
+
 
 class StoreManagerPasscodeResetView(generics.UpdateAPIView):
     serializer_class = StoreManagerSerializer
@@ -190,10 +212,12 @@ class StoreManagerPasscodeResetView(generics.UpdateAPIView):
         )
 
 
+
 class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = ServiceCategorySerializer
     permission_classes = [permissions.AllowAny]
+
 
 
 class ServiceListView(generics.ListAPIView):
@@ -209,6 +233,8 @@ class ServiceListView(generics.ListAPIView):
 
         return queryset
     
+
+
 class TimeSlotListView(generics.ListAPIView):
     serializer_class = TimeSlotSerializer
     permission_classes = [permissions.AllowAny]
@@ -225,27 +251,13 @@ class TimeSlotListView(generics.ListAPIView):
         return queryset
 
 
+
 class IsAdminOrStaff(permissions.BasePermission):
     """Allow only Admin, Manager, Staff roles."""
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated and request.user.role in [
             "superadmin", "admin", "manager", "staff"
         ])
-
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def bookingdropdown(request):
-    #data = list(BookingStatus.objects.values("id", "status"))
-    data = list(BookingStatus.objects.values_list("status", flat=True))
-    return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def paymentdropdown(request):
-    #data = list(BookingStatus.objects.values("id", "status"))
-    data = list(PaymentStatus.objects.values_list("status", flat=True))
-    return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
 
 
 
@@ -256,17 +268,53 @@ class SubcategoryAPIView(APIView):
 
         try:
             if category_id:
-                subcategories = SubCategory.objects.filter(category_id=category_id).order_by("id")
-                serializer = SubcategorySerilalizer(subcategories, many=True)
-                return Response({"success": True,"message": "Subcategories retrieved successfully", "data": serializer.data})
+                subcategories = (
+                    SubCategory.objects.filter(category_id=category_id)
+                    .select_related("category")  # join category for name
+                    .order_by("id")
+                )
 
-            
-            subcategories = SubCategory.objects.all().order_by("id")
-            serializer = SubcategorySerilalizer(subcategories, many=True)
+                data = [
+                    {
+                        "id": sub.id,
+                        "name": sub.name,
+                        "discount": f"{sub.discount if sub.discount is not None else 0} %",
+                        "is_active": sub.is_active,
+                        "category": sub.category.id if sub.category else None,
+                        "category_name": sub.category.name if sub.category else None,
+                    }
+                    for sub in subcategories
+                ]
+
+                return Response({
+                    "success": True,
+                    "message": "Subcategories retrieved successfully",
+                    "data": data
+                })
+
+            # If no category_id, return all
+            subcategories = (
+                SubCategory.objects.all()
+                .select_related("category")
+                .order_by("id")
+            )
+
+            data = [
+                {
+                    "id": sub.id,
+                    "name": sub.name,
+                    "discount": sub.discount,
+                    "is_active": sub.is_active,
+                    "category": sub.category.id if sub.category else None,
+                    "category_name": sub.category.name if sub.category else None,
+                }
+                for sub in subcategories
+            ]
+
             return Response({
                 "success": True,
                 "message": "All subcategories retrieved successfully",
-                "data": serializer.data
+                "data": data
             })
 
         except Exception as e:
@@ -274,7 +322,6 @@ class SubcategoryAPIView(APIView):
                 "success": False,
                 "message": f"Error retrieving subcategories: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
     def post(self, request):
         serializer = SubcategorySerilalizer(data=request.data)
@@ -319,6 +366,65 @@ class SubcategoryAPIView(APIView):
                 "message": f"Error updating SubCategory: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
+class storepartner(APIView):
+
+    def post(self, request):
+        #serializer = StorePartnerSerializer(data=request.data)
+        serializer = StorePartnerSerializer( data=request.data, context={"request": request}  )
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"success": True,"message": "Store Partner created successfully",})
+        return Response({"success": False,"message": "Validation failed","errors": serializer.errors})
+    
+    def get(self, request):
+        store_id = request.query_params.get("store_id")
+
+        if store_id:
+            store_id_uuid = uuid.UUID(store_id)
+            store_partners = StorePartner.objects.filter(store__id=store_id_uuid)
+            serializer = StorePartnerSerializer(store_partners, many=True)
+            return Response({"success": True,"message": "Store Partners retrieved successfully","data": serializer.data})
+        
+        store_partners = StorePartner.objects.all()
+        serializer = StorePartnerSerializer(store_partners, many=True)
+        return Response({"success": True,"message": "Store Partners retrieved successfully","data": serializer.data})
+    
+
+    def put(self, request):
+        partners_data = request.data.get("id")
+
+        if not partners_data:
+            return Response({"success": False, "message": "id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        store_partner = StorePartner.objects.filter(pk=partners_data).first()
+        if not store_partner:
+            return Response({"success": False, "message": "Store Partner not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = StorePartnerSerializer(store_partner, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"success": True,"message": "Store Partner updated successfully","data": serializer.data}, status=status.HTTP_200_OK)
+
+        return Response({"success": False,"message": "Validation failed","errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request):
+        partner_id = request.data.get("id")
+
+        if not partner_id:
+            return Response({"success": False, "message": "id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        store_partner = StorePartner.objects.filter(pk=partner_id).first()
+        if not store_partner:
+            return Response({"success": False, "message": "Store Partner not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        store_partner.delete()
+        return Response({"success": True, "message": "Store Partner deleted successfully"}, status=status.HTTP_200_OK)
+
+    
+
+    
 # class AdminNotificationLogListView(generics.ListAPIView):
 #     serializer_class = NotificationLogSerializer
 #     permission_classes = [IsAdminOrStaff]

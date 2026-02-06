@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.db import transaction
 from .models import *
 
+
 class VendorSerializer(serializers.ModelSerializer): 
     category_name = serializers.CharField(source="category.name", read_only=True)
     
@@ -10,6 +11,8 @@ class VendorSerializer(serializers.ModelSerializer):
         fields = "__all__" 
         read_only_fields = ["vendor_id","category_name"]
 
+
+
 class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -17,12 +20,16 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["product_id"]
 
+
+
 class IndentItemSerializer(serializers.ModelSerializer): 
     
     product_name = serializers.CharField(source="product.name", read_only=True) 
     class Meta: 
         model = IndentItem 
         fields = ["id", "product", "product_name", "quantity"]
+
+
 
 class GRNItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -32,6 +39,9 @@ class GRNItemSerializer(serializers.ModelSerializer):
             "accepted_qty", "received_qty", "damaged_qty", "expired_qty", "rejected_qty",
             "purchase_price", "mrp","discount", "gst_percent", "amount"
         ]
+
+
+
 class GRNSerializer(serializers.ModelSerializer):
     items = GRNItemSerializer(many=True)
 
@@ -49,6 +59,7 @@ class GRNSerializer(serializers.ModelSerializer):
         for item_data in items_data:
             GRNItem.objects.create(grn=grn, **item_data)
         return grn
+
 
 
 class IndentSerializer(serializers.ModelSerializer):
@@ -105,5 +116,32 @@ class IndentSerializer(serializers.ModelSerializer):
 
         return instance
 
+
+
+class RecipeItermSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    class Meta:
+        model = Recipeiterm
+        fields = ["product","quantity","product_name","created_at"]
+
+class RecipeSerializer(serializers.ModelSerializer):
+    items = RecipeItermSerializer(many=True)
+    service_name = serializers.CharField(source="service.name", read_only=True)                                                                                                            
+
+    class Meta:                         
+        model = Recipe
+        fields = ["id","recipe_id","service","items","created_at","service_name","category_id"]
+        read_only_fields = ["recipe_id"]
+
+        
+
+    @transaction.atomic
+    def create(self, validated_data):
+        items_data = validated_data.pop("items")
+        recipe = Recipe.objects.create(**validated_data)
+        for item_data in items_data:
+            Recipeiterm.objects.create(recipe=recipe, **item_data)
+        return recipe   
+    
 
 
