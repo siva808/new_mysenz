@@ -118,7 +118,7 @@ import os
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        "AME" :"elixwel_flow",
+        "NAME" :"elixwel_flow",
         "USER" :"elixwel_user",
         "PASSWORD" : "Elixwel@123",
         "HOST" : "localhost",
