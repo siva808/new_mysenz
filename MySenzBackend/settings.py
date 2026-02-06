@@ -118,11 +118,11 @@ import os
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        "DB_NAME" :"elixwel_flow",
-        "DB_USER" :"elixwel_user",
-        "DB_PASSWORD" : "Elixwel@123",
-        "DB_HOST" : "localhost",
-        "DB_PORT" : "5432",
+        "AME" :"elixwel_flow",
+        "USER" :"elixwel_user",
+        "PASSWORD" : "Elixwel@123",
+        "HOST" : "localhost",
+        "PORT" : "5432",
         # 'NAME': 'mysenz_db',
         # 'USER': 'postgres',
         # 'PASSWORD': 'Avis@143',
