@@ -80,7 +80,7 @@ class Store(models.Model):
     dl = models.CharField(max_length=12, unique=True)
     store_formate = models.CharField(max_length=50, blank=True, null=True)
     store_category = models.CharField(max_length=50, blank=True, null=True)
-    create_at = models.DateTimeField(auto_now_add=True)
+    create_at = models.DateTimeField(auto_now_add=True,blank=True,null=True)
     
     gst_certificate = models.ImageField(upload_to="store/gst_certificates/", null=True, blank=True)
     dl_image = models.ImageField(upload_to="store/drug_license/", null=True, blank=True)
