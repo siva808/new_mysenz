@@ -162,6 +162,7 @@ class StorePartner(models.Model):
 
 class Category(models.Model):
     name = models.CharField(max_length=100,unique=True)
+    share_percentage = models.DecimalField(max_digits=3, decimal_places=2,null=True, blank=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):

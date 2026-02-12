@@ -22,14 +22,13 @@ from MySenzApp.models import *
 from MySenzApp.crud import *
 import csv
 import pytz 
-
-
+from django.db.models import Sum, F
+from rest_framework.pagination import PageNumberPagination
 
 
 IST = pytz.timezone("Asia/Kolkata")
 
-from django.db.models import Sum, F
-from rest_framework.pagination import PageNumberPagination
+
 class LargeResultSetPagination(PageNumberPagination):
     page_size = 200  
     page_size_query_param = "page_size"
@@ -916,7 +915,7 @@ def po_update_status(request):
 
 
 
-@csrf_exempt
+
 @api_view(["POST"])
 def create_indent(request):
     json_request = JSONParser().parse(request)
@@ -979,7 +978,6 @@ def create_indent(request):
 
 
 
-@csrf_exempt
 @api_view(["POST"])
 def stoke_management(request):
     json_request = JSONParser().parse(request)
@@ -999,7 +997,7 @@ def stoke_management(request):
 
 
 
-@csrf_exempt
+
 @api_view(["POST"])
 def get_indent_details(request):
     json_request = JSONParser().parse(request)
@@ -1103,7 +1101,7 @@ def get_indent_details(request):
 
 
 
-@csrf_exempt
+
 @api_view(["POST"])
 def update_indent(request):
     json_request = JSONParser().parse(request)
@@ -1163,14 +1161,14 @@ def update_indent(request):
 
 
 
-@csrf_exempt
+
 @api_view(["GET"])
 def UOMdropdown(request):
     data = list(UOM.objects.values_list("name", flat=True))
     return Response({"success": True, "data": data})
 
 
-@csrf_exempt
+
 @api_view(["GET"])
 def store_inventory(request, store_id):
     qs = ProductBatch.objects.filter(store_id=store_id)\
@@ -1179,7 +1177,7 @@ def store_inventory(request, store_id):
     return Response(qs)
 
 
-@csrf_exempt
+
 @api_view(["GET"])
 def central_inventory(request):
     central_store = Store.objects.get(is_central=True)
@@ -1189,7 +1187,7 @@ def central_inventory(request):
     return Response(qs)
 
 
-@csrf_exempt 
+
 @api_view(["GET"]) 
 def get_intent_list(request): 
     statuses = IndentStatus.objects.values_list("status", flat=True)
@@ -1198,7 +1196,7 @@ def get_intent_list(request):
 
 
 
-@csrf_exempt
+
 @api_view(["POST"])
 @transaction.atomic
 def create_grn(request):
@@ -1256,7 +1254,7 @@ def create_grn(request):
 
 
 
-@csrf_exempt
+
 @api_view(["GET"])
 def product_stock_list(request):
     products = Product.objects.filter(product_batches__stock__gt=0).distinct() 
@@ -1444,6 +1442,75 @@ def get_credit_notes(request):
 
     return Response({"success": False, "message": "Invalid note_type"}, status=400)
 
+
+
+@api_view(["GET"])
+def store_category_stock_list(request):
+    try:
+        store_id = request.query_params.get("store_id")
+        category_id = request.query_params.get("category_id")
+
+        if not store_id or not category_id:
+            return Response(
+                {"success": False, "message": "Both store_id and category_id are required"},
+                status=400
+            )
+
+        stock_data = []
+
+        products = Product.objects.filter(stocks__store_id=store_id,stocks__product__category_id=category_id,stocks__stock__gt=0).distinct()
+
+        for product in products:
+            # Total stock across all batches
+            total_stock = (
+                Stock.objects.filter(store_id=store_id, product=product, stock__gt=0)
+                .aggregate(total=Sum("stock"))["total"] or 0
+            )
+
+            if total_stock <= 0:
+                continue
+
+            # Pick the batch that expires soonest (FEFO)
+            soonest_batch = (
+                Stock.objects.filter(store_id=store_id, product=product, stock__gt=0)
+                .order_by("expiry_date")  
+                .select_related("storegrn__indent")
+                .first()
+            )
+
+            if not soonest_batch:
+                continue
+
+            stock_data.append({
+                "product_id": product.product_id,
+                "product_name": product.name,
+                "brand_name": product.brand_name,
+                "HSNcode": product.hsn_Code,
+                "uom": product.uom,
+                "stock": total_stock,
+                "mrp": str(soonest_batch.mrp),
+                "margin_price": str(soonest_batch.margin_price),
+                "grn_number": soonest_batch.storegrn.grn_number if soonest_batch.storegrn else None,
+                "exp_date": soonest_batch.expiry_date,
+                "batch_no": soonest_batch.batch_no,
+                "stock_id": soonest_batch.id,
+                "indent_number": (
+                    soonest_batch.storegrn.indent.indent_number
+                    if soonest_batch.storegrn and soonest_batch.storegrn.indent
+                    else None
+                ),
+            })
+
+        return Response(
+            {"success": True, "count": len(stock_data), "data": stock_data},
+            status=200
+        )
+
+    except Exception as e:
+        return Response(
+            {"success": False, "message": f"Error fetching store/category stock: {str(e)}"},
+            status=400
+        )
 
 
 
@@ -1783,76 +1850,6 @@ class StoreStockList(APIView):
     
 
 
-@api_view(["GET"])
-def store_category_stock_list(request):
-    try:
-        store_id = request.query_params.get("store_id")
-        category_id = request.query_params.get("category_id")
-
-        if not store_id or not category_id:
-            return Response(
-                {"success": False, "message": "Both store_id and category_id are required"},
-                status=400
-            )
-
-        stock_data = []
-
-        products = Product.objects.filter(stocks__store_id=store_id,stocks__product__category_id=category_id,stocks__stock__gt=0).distinct()
-
-        for product in products:
-            # Total stock across all batches
-            total_stock = (
-                Stock.objects.filter(store_id=store_id, product=product, stock__gt=0)
-                .aggregate(total=Sum("stock"))["total"] or 0
-            )
-
-            if total_stock <= 0:
-                continue
-
-            # Pick the batch that expires soonest (FEFO)
-            soonest_batch = (
-                Stock.objects.filter(store_id=store_id, product=product, stock__gt=0)
-                .order_by("expiry_date")  
-                .select_related("storegrn__indent")
-                .first()
-            )
-
-            if not soonest_batch:
-                continue
-
-            stock_data.append({
-                "product_id": product.product_id,
-                "product_name": product.name,
-                "brand_name": product.brand_name,
-                "HSNcode": product.hsn_Code,
-                "uom": product.uom,
-                "stock": total_stock,
-                "mrp": str(soonest_batch.mrp),
-                "margin_price": str(soonest_batch.margin_price),
-                "grn_number": soonest_batch.storegrn.grn_number if soonest_batch.storegrn else None,
-                "exp_date": soonest_batch.expiry_date,
-                "batch_no": soonest_batch.batch_no,
-                "stock_id": soonest_batch.id,
-                "indent_number": (
-                    soonest_batch.storegrn.indent.indent_number
-                    if soonest_batch.storegrn and soonest_batch.storegrn.indent
-                    else None
-                ),
-            })
-
-        return Response(
-            {"success": True, "count": len(stock_data), "data": stock_data},
-            status=200
-        )
-
-    except Exception as e:
-        return Response(
-            {"success": False, "message": f"Error fetching store/category stock: {str(e)}"},
-            status=400
-        )
-
-
-
 
 class StoreGrnReturnView(APIView):
 
@@ -1971,7 +1968,6 @@ class StoreCategoryStockView(APIView):
         if not store_id or not category_id:
             return Response(
                 {"success": False, "message": "store_id and category_id are required"},
-                status=status.HTTP_400_BAD_REQUEST
             )
 
         data = []
@@ -2066,7 +2062,6 @@ class StoreCategoryStockView(APIView):
         else:
             return Response(
                 {"success": False, "message": "Invalid type. Must be 'product' or 'service'"},
-                status=status.HTTP_400_BAD_REQUEST
             )
 
         return Response(
@@ -2110,7 +2105,7 @@ class InvoiceAPIView(APIView):
                 status=400
             )
 
-        # Base queryset: all invoices for the store
+        # all invoices for the store
         invoices_qs = Invoice.objects.filter(store_id=store_id)
 
     
@@ -2129,19 +2124,25 @@ class InvoiceAPIView(APIView):
         for inv in invoices:
             data.append({
                 "invoice_no": inv.invoice_no,
+                "user_name":inv.customer.name ,
+                "user_mobile":inv.customer.contact,
                 "status": inv.status,
                 "total": float(inv.total),
-                "created_at": inv.created_at,
+                "created_at": timezone.localtime(inv.created_at, IST).strftime("%Y-%m-%d %H:%M:%S"),
                 "items": [
                     {
                         "item_type": i.item_type,
-                        "quantity": i.quantity,
+                        "quantity": i.quantity,     
                         "mrp": float(i.mrp),
                         "discount": float(i.discount),
                         "selling_price": float(i.selling_price),
                         "subtotal": float(i.Sub_total),
                         "stock_id": i.stock_id,
+                        "discount_type":i.discount_type,
                         "service_id": i.service_id,
+                        "name":i.stock.product.name if i.stock else
+                                i.service.name if i.service else
+                                i.package.package_name if i.package else None,
                         "package_id": i.package_id,
                     }
                     for i in inv.items.all()
@@ -2180,19 +2181,19 @@ class InvoiceAPIView(APIView):
 
             for item in items:
                 item_type = item.get("item_type")
+                discount_type =item.get("billing_discount_type")
                 qty = int(item.get("qty", 1))
 
                 if qty <= 0:
                     return JsonResponse({"success": False, "message": "Quantity must be greater than 0"},status=400)
 
                 mrp = Decimal(item.get("mrp", 0))
-                discount = Decimal(item.get("discount", 0))
+                discount = Decimal(item.get("billing_discount_value", 0))
                 selling_price = Decimal(item.get("selling_price", 0))
                 subtotal = Decimal(item.get("subtotal", 0))
 
                 if item_type == "Product":
                     batch_no = item.get("batch_no")
-                    product_id = item.get("product_id")
                     stock = Stock.objects.select_for_update().filter( batch_no=batch_no, store_id=store_id ).first() 
                     if stock.stock < qty:
                         return JsonResponse(
@@ -2211,6 +2212,7 @@ class InvoiceAPIView(APIView):
                             discount=discount,
                             selling_price=selling_price,
                             Sub_total=subtotal,
+                            discount_type=discount_type,
                         )
                     )
 

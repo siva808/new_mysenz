@@ -14,6 +14,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import authenticate
 from .models import *
 from .serializers import *
+from django.conf import settings
 
 token_generator = PasswordResetTokenGenerator()
 
@@ -71,7 +72,8 @@ def forgot_password(request):
         return Response({"error": "User not found"}, status=404)
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = token_generator.make_token(user)
-    reset_link = f"http://192.168.1.22:8000/api/auth/reset-password/{uid}/{token}/"
+    # reset_link = f"http://192.168.1.22:8000/api/auth/reset-password/{uid}/{token}/"
+    reset_link = f"{settings.FRONTEND_URL}/api/auth/reset-password/{uid}/{token}/"
     send_mail(
         "Password Reset",
         f"It happens to the best of us.Tap the link below and Mysenze will guide you to a fresh new password: {reset_link}",

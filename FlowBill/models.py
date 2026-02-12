@@ -96,7 +96,7 @@ class PurchaseOrder(models.Model):
     po_number = models.CharField(max_length=20, unique=True, blank=True)
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
     order_date = models.DateField(auto_now_add=True)
-    status = models.CharField(max_length=20, default="created")  # created, received, cancelled
+    status = models.CharField(max_length=20, default="created")  
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     #common fields
     created_at = models.DateTimeField(auto_now_add=True)
@@ -128,7 +128,7 @@ class PurchaseOrderItem(models.Model):
     purchase_order = models.ForeignKey(PurchaseOrder, related_name="items", on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     qty = models.PositiveIntegerField()
-    uom = models.CharField(max_length=20)  # Nos, ml, strip, etc.
+    uom = models.CharField(max_length=20) 
     unit_price = models.DecimalField(max_digits=10, decimal_places=2,null=True, blank=True)
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
@@ -148,7 +148,7 @@ class Indent(models.Model):
     status = models.CharField(max_length=150)
     suggested_vendors = ArrayField(models.IntegerField(), default=list, blank=True)
     remarkers = models.CharField(max_length=150)
-    #coomen fields
+
     is_active = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True) 
@@ -188,6 +188,8 @@ class IndentStatus(models.Model):
 
     def __str__(self):
         return self.status
+    class Meta: 
+        db_table = "indent_status"
 
 
 
@@ -537,7 +539,6 @@ class PackagesItem(models.Model):
 
 
 class StoreGrn(models.Model):
-
     grn_number = models.CharField(max_length=50, unique=True)
     store = models.ForeignKey(Store,on_delete=models.CASCADE)
     indent = models.ForeignKey(Indent, on_delete=models.CASCADE, related_name="store_grns") 
@@ -722,6 +723,7 @@ class InvoiceItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     mrp = models.DecimalField(max_digits=10, decimal_places=2,validators=[MinValueValidator(0)])
     discount= models.DecimalField(max_digits=10, decimal_places=2, default=0,validators=[MinValueValidator(0)])
+    discount_type =models.CharField(max_length=20,blank=True,null=True)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2,validators=[MinValueValidator(0)])
     Sub_total = models.DecimalField(max_digits=10, decimal_places=2,validators=[MinValueValidator(0)])
 

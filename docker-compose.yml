@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: django_dev_app
+    command: >
+      sh -c  "python manage.py makemigrations &&
+              python manage.py migrate &&
+              python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/MySenzBackend
+    depends_on:
+      - db
+    environment:
+      DB_NAME: mysenz_db
+      DB_USER: postgres
+      DB_PASSWORD: Avis@143
+      DB_HOST: db
+      DB_PORT: 5432
+      PYTHONUNBUFFERED: 1
+
+  db:
+    image: postgres:15
+    container_name: postgres_dev_db
+    restart: always
+    environment:
+      POSTGRES_DB: mysenz_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Avis@143
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

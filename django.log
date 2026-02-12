@@ -1,0 +1,620 @@
+INFO 2026-02-10 11:00:00,123 django.request log GET /api/invoice/200 200
+WARNING 2026-02-10 11:05:00,456 django.security CSRF failure
+ERROR 2026-02-10 11:10:00,789 django.db.backends Database connection lost
+
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+Unauthorized: /flowbill/store-grn/
+"GET /flowbill/store-grn/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2&status=completed HTTP/1.1" 401 58
+"OPTIONS /flowbill/store-billing/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 0
+Unauthorized: /flowbill/store-billing/
+"GET /flowbill/store-billing/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 401 172
+"OPTIONS /flowbill/store-stock/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 0
+Unauthorized: /flowbill/store-stock/
+"GET /flowbill/store-stock/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 401 172
+"OPTIONS /flowbill/storegrn_return/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 0
+Unauthorized: /flowbill/storegrn_return/
+"GET /flowbill/storegrn_return/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 401 172
+Unauthorized: /flowbill/store-stock/
+"GET /flowbill/store-stock/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 401 172
+Watching for file changes with StatReloader
+Unauthorized: /flowbill/UOMdropdown/
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 401 58
+Unauthorized: /flowbill/store-grn/
+"GET /flowbill/store-grn/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2&status=completed HTTP/1.1" 401 58
+Unauthorized: /flowbill/store-grn/
+"GET /flowbill/store-grn/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2&status=completed HTTP/1.1" 401 58
+Unauthorized: /flowbill/store-grn/
+"GET /flowbill/store-grn/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2&status=completed HTTP/1.1" 401 58
+Unauthorized: /flowbill/store-grn/
+"GET /flowbill/store-grn/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2&status=completed HTTP/1.1" 401 58
+Unauthorized: /flowbill/store-grn/
+"GET /flowbill/store-grn/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2&status=completed HTTP/1.1" 401 58
+Unauthorized: /flowbill/store-grn/
+"GET /flowbill/store-grn/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2&status=completed HTTP/1.1" 401 58
+Unauthorized: /flowbill/store-grn/
+"GET /flowbill/store-grn/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2&status=completed HTTP/1.1" 401 58
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+"GET /flowbill/store-grn/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2&status=completed HTTP/1.1" 200 867
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"OPTIONS /api/admin/login/ HTTP/1.1" 200 0
+"POST /api/admin/login/ HTTP/1.1" 200 761
+"OPTIONS /flowbill/UOMdropdown/ HTTP/1.1" 200 0
+Unauthorized: /flowbill/store-stock/
+"GET /flowbill/store-stock/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 401 172
+Unauthorized: /flowbill/UOMdropdown/
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 401 172
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+"OPTIONS /api/admin/store-manager/ HTTP/1.1" 200 0
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2198
+"OPTIONS /api/admin/store-partner/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2 HTTP/1.1" 200 0
+"GET /api/admin/store-partner/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2 HTTP/1.1" 200 907
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/FlowBill/views.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/FlowBill/views.py changed, reloading.
+Watching for file changes with StatReloader
+"OPTIONS /api/admin/category-counts/ HTTP/1.1" 200 0
+Unauthorized: /api/admin/category-counts/
+"POST /api/admin/category-counts/ HTTP/1.1" 401 172
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"OPTIONS /api/admin/login/ HTTP/1.1" 200 0
+"POST /api/admin/login/ HTTP/1.1" 200 761
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"OPTIONS /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"OPTIONS /api/admin/subcategory/?category_id=3 HTTP/1.1" 200 0
+"GET /api/admin/subcategory/?category_id=3 HTTP/1.1" 200 290
+"OPTIONS /api/admin/subcategory/?category_id=4 HTTP/1.1" 200 0
+"GET /api/admin/subcategory/?category_id=4 HTTP/1.1" 200 286
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"OPTIONS /flowbill/indent_status_list/ HTTP/1.1" 200 0
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 44
+/home/dell/projects/mysenz/FlowBill/models.py changed, reloading.
+Watching for file changes with StatReloader
+Unauthorized: /flowbill/indent_status_list/
+"POST /flowbill/indent_status_list/ HTTP/1.1" 401 172
+/home/dell/projects/mysenz/MySenzApp/views.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzApp/views.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzApp/views.py changed, reloading.
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"OPTIONS /api/admin/login/ HTTP/1.1" 200 0
+"POST /api/admin/login/ HTTP/1.1" 200 761
+"OPTIONS /api/admin/store-manager/ HTTP/1.1" 200 0
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2198
+"POST /api/admin/login/ HTTP/1.1" 200 49
+"POST /api/admin/login/ HTTP/1.1" 200 818
+"OPTIONS /api/admin/category-counts/ HTTP/1.1" 200 0
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"OPTIONS /flowbill/dispatch_order/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 0
+"GET /flowbill/dispatch_order/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 2779
+"OPTIONS /api/admin/bookings-count/ HTTP/1.1" 200 0
+"POST /api/admin/bookings-count/ HTTP/1.1" 200 129
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/bookings-count/ HTTP/1.1" 200 129
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/bookings-count/ HTTP/1.1" 200 129
+"GET /flowbill/dispatch_order/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 2779
+"POST /api/admin/bookings-count/ HTTP/1.1" 200 129
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/bookings-count/ HTTP/1.1" 200 129
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"POST /api/admin/login/ HTTP/1.1" 200 818
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"OPTIONS /flowbill/store-billing/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 0
+"GET /flowbill/store-billing/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 7405
+"OPTIONS /flowbill/customer-get/?mobile=8547419162 HTTP/1.1" 200 0
+"GET /flowbill/customer-get/?mobile=8547419162 HTTP/1.1" 200 46
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/bookings-count/ HTTP/1.1" 200 129
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"OPTIONS /flowbill/indent_status_list/ HTTP/1.1" 200 0
+"OPTIONS /flowbill/indent_list/ HTTP/1.1" 200 0
+"GET /flowbill/indent_list/ HTTP/1.1" 200 135
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 2303
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 44
+"OPTIONS /flowbill/dispatch_order/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e&status=Dispatched HTTP/1.1" 200 0
+"GET /flowbill/dispatch_order/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e&status=Dispatched HTTP/1.1" 200 187
+"OPTIONS /flowbill/store-stock/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 0
+"GET /flowbill/store-stock/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 1505
+"OPTIONS /flowbill/storegrn_return/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 0
+"GET /flowbill/storegrn_return/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 62
+"GET /flowbill/storegrn_return/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 62
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/bookings-count/ HTTP/1.1" 200 129
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/bookings-count/ HTTP/1.1" 200 129
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"GET /flowbill/store-stock/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 1505
+"GET /flowbill/store-stock/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 1505
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"GET /flowbill/store-stock/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 1505
+"OPTIONS /api/admin/category-counts/ HTTP/1.1" 200 0
+Unauthorized: /api/admin/category-counts/
+"POST /api/admin/category-counts/ HTTP/1.1" 401 172
+"OPTIONS /flowbill/UOMdropdown/ HTTP/1.1" 200 0
+Unauthorized: /flowbill/UOMdropdown/
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/category-counts/
+"POST /api/admin/category-counts/ HTTP/1.1" 401 172
+"OPTIONS /flowbill/store-billing/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 0
+Unauthorized: /flowbill/store-billing/
+"GET /flowbill/store-billing/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 401 172
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"GET /flowbill/storegrn_return/?store_id=e11874ab-a26e-4e66-bebf-0b7671521a8e HTTP/1.1" 200 62
+"POST /api/admin/bookings-count/ HTTP/1.1" 200 129
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+Unauthorized: /flowbill/UOMdropdown/
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"POST /api/admin/bookings-count/ HTTP/1.1" 200 129
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"GET /flowbill/indent_list/ HTTP/1.1" 200 135
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 2303
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 44
+"POST /api/admin/login/ HTTP/1.1" 200 761
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2198
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"OPTIONS /api/admin/subcategory/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"GET /api/admin/subcategory/ HTTP/1.1" 200 1531
+Unauthorized: /flowbill/UOMdropdown/
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 401 172
+"OPTIONS /api/admin/services/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"GET /api/admin/services/ HTTP/1.1" 200 2435
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"OPTIONS /api/admin/login/ HTTP/1.1" 200 0
+"POST /api/admin/login/ HTTP/1.1" 200 761
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"POST /api/admin/login/ HTTP/1.1" 200 818
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"OPTIONS /api/admin/store-manager/ HTTP/1.1" 200 0
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2198
+"OPTIONS /api/admin/store-partner/?store_id=2e2a7409-5ae4-4491-827a-1fb03821b0eb HTTP/1.1" 200 0
+"GET /api/admin/store-partner/?store_id=2e2a7409-5ae4-4491-827a-1fb03821b0eb HTTP/1.1" 200 76
+"PUT /api/admin/store-manager/ HTTP/1.1" 200 421
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2199
+"GET /api/admin/store-partner/?store_id=2e2a7409-5ae4-4491-827a-1fb03821b0eb HTTP/1.1" 200 76
+"PUT /api/admin/store-manager/ HTTP/1.1" 200 420
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2198
+"OPTIONS /api/admin/store-partner/?store_id=05802241-0521-4e1e-bf71-af8bc29eee8c HTTP/1.1" 200 0
+"GET /api/admin/store-partner/?store_id=05802241-0521-4e1e-bf71-af8bc29eee8c HTTP/1.1" 200 76
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"OPTIONS /api/admin/login/ HTTP/1.1" 200 0
+"POST /api/admin/login/ HTTP/1.1" 200 761
+"OPTIONS /api/admin/store-manager/ HTTP/1.1" 200 0
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2198
+"OPTIONS /api/admin/store-partner/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2 HTTP/1.1" 200 0
+"GET /api/admin/store-partner/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2 HTTP/1.1" 200 907
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"OPTIONS /api/admin/services/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"GET /api/admin/services/ HTTP/1.1" 200 2435
+"OPTIONS /flowbill/recipe-view/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"GET /flowbill/recipe-view/ HTTP/1.1" 200 487
+"OPTIONS /flowbill/vendor/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"GET /flowbill/vendor/ HTTP/1.1" 200 5507
+"OPTIONS /flowbill/get_products/ HTTP/1.1" 200 0
+"OPTIONS /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"POST /flowbill/get_products/ HTTP/1.1" 200 1734
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"OPTIONS /flowbill/indent_status_list/ HTTP/1.1" 200 0
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 44
+"OPTIONS /flowbill/get_po_details/ HTTP/1.1" 200 0
+"POST /flowbill/get_po_details/ HTTP/1.1" 200 379
+"OPTIONS /flowbill/get_grn/ HTTP/1.1" 200 0
+"GET /flowbill/get_grn/ HTTP/1.1" 200 1090
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"POST /api/admin/login/ HTTP/1.1" 200 761
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2198
+Unauthorized: /api/admin/store-manager/
+"GET /api/admin/store-manager/ HTTP/1.1" 401 172
+Watching for file changes with StatReloader
+Unauthorized: /api/admin/store-manager/
+"GET /api/admin/store-manager/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/store-manager/
+"GET /api/admin/store-manager/ HTTP/1.1" 401 172
+"OPTIONS /api/admin/store-manager/ HTTP/1.1" 200 0
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2198
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2198
+"OPTIONS /api/admin/store-manager-create/ HTTP/1.1" 200 0
+"POST /api/admin/store-manager-create/ HTTP/1.1" 200 62
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2568
+"OPTIONS /api/admin/store-partner/?store_id=b18b97aa-24b2-4d00-a204-6dfec49b962d HTTP/1.1" 200 0
+"GET /api/admin/store-partner/?store_id=b18b97aa-24b2-4d00-a204-6dfec49b962d HTTP/1.1" 200 76
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"OPTIONS /flowbill/recipe-view/ HTTP/1.1" 200 0
+Unauthorized: /flowbill/recipe-view/
+"GET /flowbill/recipe-view/ HTTP/1.1" 401 172
+"OPTIONS /api/admin/store-partner/ HTTP/1.1" 200 0
+"POST /api/admin/store-partner/ HTTP/1.1" 200 98
+"POST /api/admin/store-partner/ HTTP/1.1" 200 98
+Unauthorized: /flowbill/recipe-view/
+"GET /flowbill/recipe-view/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+Unauthorized: /flowbill/recipe-view/
+"GET /flowbill/recipe-view/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+Unauthorized: /flowbill/recipe-view/
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"GET /flowbill/recipe-view/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"OPTIONS /api/admin/services/ HTTP/1.1" 200 0
+Unauthorized: /api/admin/services/
+"GET /api/admin/services/ HTTP/1.1" 401 172
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+Unauthorized: /api/admin/services/
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"GET /api/admin/services/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/services/
+"GET /api/admin/services/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"OPTIONS /flowbill/get_products/ HTTP/1.1" 200 0
+"OPTIONS /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 0
+Unauthorized: /flowbill/get_products/
+"POST /flowbill/get_products/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/subcategory/
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 401 172
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+"OPTIONS /api/admin/subcategory/ HTTP/1.1" 200 0
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+Unauthorized: /api/admin/subcategory/
+"GET /api/admin/subcategory/ HTTP/1.1" 401 172
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"OPTIONS /api/admin/login/ HTTP/1.1" 200 0
+"POST /api/admin/login/ HTTP/1.1" 200 761
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 426
+"POST /api/admin/categories/ HTTP/1.1" 201 58
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"OPTIONS /api/admin/categories/?id=9 HTTP/1.1" 200 0
+"PUT /api/admin/categories/?id=9 HTTP/1.1" 200 58
+"GET /api/admin/categories/ HTTP/1.1" 200 469
+"PUT /api/admin/categories/?id=9 HTTP/1.1" 200 58
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"OPTIONS /api/admin/subcategory/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"GET /api/admin/subcategory/ HTTP/1.1" 200 1531
+"OPTIONS /api/admin/subcategory/?category_id=2 HTTP/1.1" 200 0
+"GET /api/admin/subcategory/?category_id=2 HTTP/1.1" 200 406
+"OPTIONS /api/admin/subcategory/ HTTP/1.1" 200 0
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"GET /api/admin/subcategory/ HTTP/1.1" 200 1531
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"OPTIONS /api/admin/services/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"GET /api/admin/services/ HTTP/1.1" 200 2435
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"OPTIONS /flowbill/recipe-view/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"GET /flowbill/recipe-view/ HTTP/1.1" 200 487
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"OPTIONS /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 0
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"OPTIONS /api/admin/services/?subcategory_id=1 HTTP/1.1" 200 0
+"GET /api/admin/services/?subcategory_id=1 HTTP/1.1" 200 859
+"OPTIONS /flowbill/get_products/ HTTP/1.1" 200 0
+"POST /flowbill/get_products/ HTTP/1.1" 200 1734
+"POST /flowbill/get_products/ HTTP/1.1" 200 1333
+"POST /flowbill/recipe-view/ HTTP/1.1" 201 67
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"GET /flowbill/recipe-view/ HTTP/1.1" 200 581
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"OPTIONS /api/admin/subcategory/?category_id=3 HTTP/1.1" 200 0
+"GET /api/admin/subcategory/?category_id=3 HTTP/1.1" 200 290
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"GET /api/admin/services/?subcategory_id=1 HTTP/1.1" 200 859
+"POST /flowbill/get_products/ HTTP/1.1" 200 1734
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"OPTIONS /flowbill/recipe-view/ HTTP/1.1" 200 0
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"GET /flowbill/recipe-view/ HTTP/1.1" 200 581
+"OPTIONS /flowbill/recipe-view/?id=4 HTTP/1.1" 200 0
+Unauthorized: /flowbill/recipe-view/
+"GET /flowbill/recipe-view/?id=4 HTTP/1.1" 401 172
+Unauthorized: /flowbill/recipe-view/
+Unauthorized: /api/admin/categories/
+"GET /flowbill/recipe-view/ HTTP/1.1" 401 172
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+Unauthorized: /flowbill/recipe-view/
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"GET /flowbill/recipe-view/ HTTP/1.1" 401 172
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"OPTIONS /api/admin/login/ HTTP/1.1" 200 0
+"POST /api/admin/login/ HTTP/1.1" 200 761
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"GET /flowbill/recipe-view/ HTTP/1.1" 200 581
+"OPTIONS /flowbill/recipe-view/?id=1 HTTP/1.1" 200 0
+"GET /flowbill/recipe-view/?id=1 HTTP/1.1" 200 2384
+"OPTIONS /flowbill/vendor/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"GET /flowbill/vendor/ HTTP/1.1" 200 5507
+"OPTIONS /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 0
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"OPTIONS /api/admin/subcategory/?category_id=2 HTTP/1.1" 200 0
+"GET /api/admin/subcategory/?category_id=2 HTTP/1.1" 200 406
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"OPTIONS /flowbill/vendor/ HTTP/1.1" 200 0
+Unauthorized: /api/admin/categories/
+Unauthorized: /flowbill/vendor/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"GET /flowbill/vendor/ HTTP/1.1" 401 172
+"GET /api/admin/subcategory/?category_id=2 HTTP/1.1" 200 406
+"OPTIONS /flowbill/get_products/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"POST /flowbill/get_products/ HTTP/1.1" 200 1734
+"OPTIONS /api/admin/subcategory/?category_id=3 HTTP/1.1" 200 0
+"POST /flowbill/get_products/ HTTP/1.1" 200 1333
+"GET /api/admin/subcategory/?category_id=3 HTTP/1.1" 200 290
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"OPTIONS /flowbill/indent_status_list/ HTTP/1.1" 200 0
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 44
+"OPTIONS /flowbill/get_po_details/ HTTP/1.1" 200 0
+"POST /flowbill/get_po_details/ HTTP/1.1" 200 379
+"OPTIONS /flowbill/get_grn/ HTTP/1.1" 200 0
+"GET /flowbill/get_grn/ HTTP/1.1" 200 1090
+"POST /flowbill/get_po_details/ HTTP/1.1" 200 539
+"POST /flowbill/get_po_details/ HTTP/1.1" 200 820
+"OPTIONS /flowbill/create-grn/ HTTP/1.1" 200 0
+"POST /flowbill/create-grn/ HTTP/1.1" 201 53
+"OPTIONS /flowbill/get_grn/ HTTP/1.1" 200 0
+"GET /flowbill/get_grn/ HTTP/1.1" 200 1304
+"OPTIONS /flowbill/get_po_details/ HTTP/1.1" 200 0
+"POST /flowbill/get_po_details/ HTTP/1.1" 200 539
+"OPTIONS /flowbill/get_product_stock/ HTTP/1.1" 200 0
+"GET /flowbill/get_product_stock/ HTTP/1.1" 200 1404
+"GET /flowbill/get_grn/ HTTP/1.1" 200 1304
+"OPTIONS /flowbill/get_grn/?grn_number=GRN-WH-0000023 HTTP/1.1" 200 0
+"GET /flowbill/get_grn/?grn_number=GRN-WH-0000023 HTTP/1.1" 200 746
+"OPTIONS /flowbill/get_grn/ HTTP/1.1" 200 0
+Unauthorized: /flowbill/get_grn/
+"GET /flowbill/get_grn/ HTTP/1.1" 401 172
+Unauthorized: /flowbill/get_grn/
+"GET /flowbill/get_grn/ HTTP/1.1" 401 172
+Unauthorized: /flowbill/get_grn/
+"GET /flowbill/get_grn/ HTTP/1.1" 401 172
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"OPTIONS /api/admin/login/ HTTP/1.1" 200 0
+"POST /api/admin/login/ HTTP/1.1" 200 761
+"GET /flowbill/get_grn/ HTTP/1.1" 200 1304
+"OPTIONS /flowbill/get_po_details/ HTTP/1.1" 200 0
+"POST /flowbill/get_po_details/ HTTP/1.1" 200 539
+"GET /flowbill/get_grn/ HTTP/1.1" 200 1304
+"POST /flowbill/get_po_details/ HTTP/1.1" 200 539
+"OPTIONS /flowbill/dispatch_order/ HTTP/1.1" 200 0
+"GET /flowbill/dispatch_order/ HTTP/1.1" 200 3118
+"OPTIONS /flowbill/indent_status_list/ HTTP/1.1" 200 0
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 44
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"POST /api/admin/login/ HTTP/1.1" 200 818
+"OPTIONS /api/admin/category-counts/ HTTP/1.1" 200 0
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"OPTIONS /flowbill/get_products/ HTTP/1.1" 200 0
+"OPTIONS /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 0
+"POST /flowbill/get_products/ HTTP/1.1" 200 1734
+"GET /api/admin/subcategory/?category_id=1 HTTP/1.1" 200 488
+"OPTIONS /flowbill/vendor/?category_id=1 HTTP/1.1" 200 0
+"GET /flowbill/vendor/?category_id=1 HTTP/1.1" 200 161
+"OPTIONS /flowbill/create_indent/ HTTP/1.1" 200 0
+"POST /flowbill/create_indent/ HTTP/1.1" 201 193
+"OPTIONS /flowbill/indent_list/ HTTP/1.1" 200 0
+"GET /flowbill/indent_list/ HTTP/1.1" 200 135
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 2583
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 44
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"OPTIONS /api/admin/manager-passcode-verify/ HTTP/1.1" 200 0
+"POST /api/admin/manager-passcode-verify/ HTTP/1.1" 200 46
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 322
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 396
+"OPTIONS /flowbill/update_indent/ HTTP/1.1" 200 0
+"POST /flowbill/update_indent/ HTTP/1.1" 200 83
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 44
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"OPTIONS /api/admin/subcategory/?category_id=2 HTTP/1.1" 200 0
+"POST /flowbill/get_products/ HTTP/1.1" 200 862
+"GET /api/admin/subcategory/?category_id=2 HTTP/1.1" 200 406
+"OPTIONS /flowbill/vendor/?category_id=2 HTTP/1.1" 200 0
+"GET /flowbill/vendor/?category_id=2 HTTP/1.1" 200 48
+"POST /flowbill/create_indent/ HTTP/1.1" 201 193
+"GET /flowbill/indent_list/ HTTP/1.1" 200 135
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 2863
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 323
+"POST /flowbill/get_products/ HTTP/1.1" 200 862
+"GET /flowbill/vendor/?category_id=2 HTTP/1.1" 200 48
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 397
+"POST /flowbill/update_indent/ HTTP/1.1" 200 279
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 44
+"POST /api/admin/category-counts/ HTTP/1.1" 200 208
+"POST /api/admin/manager-passcode-verify/ HTTP/1.1" 200 46
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 326
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 543
+"POST /flowbill/update_indent/ HTTP/1.1" 200 83
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 44
+"GET /flowbill/dispatch_order/ HTTP/1.1" 200 3118
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 602
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 541
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 394
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 602
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 541
+"GET /flowbill/dispatch_order/ HTTP/1.1" 200 3118
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 602
+"POST /flowbill/indent_status_list/ HTTP/1.1" 200 541
+"POST /flowbill/dispatch_order/ HTTP/1.1" 201 61
+"GET /flowbill/dispatch_order/ HTTP/1.1" 200 3596
+"OPTIONS /flowbill/get_product_stock/ HTTP/1.1" 200 0
+"GET /flowbill/get_product_stock/ HTTP/1.1" 200 1404
+"OPTIONS /flowbill/package-apiview/ HTTP/1.1" 200 0
+"GET /flowbill/package-apiview/ HTTP/1.1" 200 1011
+"GET /flowbill/get_product_stock/ HTTP/1.1" 200 1404
+"GET /flowbill/package-apiview/ HTTP/1.1" 200 1011
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"OPTIONS /flowbill/get_service_product/ HTTP/1.1" 200 0
+"POST /flowbill/get_service_product/ HTTP/1.1" 200 358
+"GET /flowbill/package-apiview/ HTTP/1.1" 200 1011
+"GET /flowbill/package-apiview/ HTTP/1.1" 200 1011
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"POST /flowbill/get_service_product/ HTTP/1.1" 200 400
+"OPTIONS /flowbill/vendor/?category_id=0 HTTP/1.1" 200 0
+Unauthorized: /flowbill/vendor/
+"GET /flowbill/vendor/?category_id=0 HTTP/1.1" 401 172
+"OPTIONS /flowbill/get_grn/ HTTP/1.1" 200 0
+Unauthorized: /flowbill/get_grn/
+"GET /flowbill/get_grn/ HTTP/1.1" 401 172
+Unauthorized: /flowbill/vendor/
+"GET /flowbill/vendor/?category_id=0 HTTP/1.1" 401 172
+"OPTIONS /flowbill/indent_status_list/ HTTP/1.1" 200 0
+Unauthorized: /flowbill/indent_status_list/
+"POST /flowbill/indent_status_list/ HTTP/1.1" 401 172
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+Unauthorized: /api/admin/categories/
+"GET /api/admin/categories/ HTTP/1.1" 401 172
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"OPTIONS /api/admin/login/ HTTP/1.1" 200 0
+"POST /api/admin/login/ HTTP/1.1" 200 761
+"GET /flowbill/vendor/?category_id=0 HTTP/1.1" 200 239
+"OPTIONS /flowbill/get_vendor_grn/?vendor_id=15 HTTP/1.1" 200 0
+"GET /flowbill/get_vendor_grn/?vendor_id=15 HTTP/1.1" 200 925
+"OPTIONS /flowbill/wh-grn-return/ HTTP/1.1" 200 0
+"POST /flowbill/wh-grn-return/ HTTP/1.1" 200 252
+"GET /flowbill/vendor/?category_id=0 HTTP/1.1" 200 239
+"GET /flowbill/get_vendor_grn/?vendor_id=15 HTTP/1.1" 200 924
+"GET /flowbill/vendor/?category_id=0 HTTP/1.1" 200 239
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"OPTIONS /flowbill/get_vendor_grn/?category_id=3 HTTP/1.1" 200 0
+"GET /flowbill/get_vendor_grn/?category_id=3 HTTP/1.1" 200 555
+"OPTIONS /flowbill/get_vendor_creditnote/?note_type=credit HTTP/1.1" 200 0
+"GET /flowbill/get_vendor_creditnote/?note_type=credit HTTP/1.1" 200 257
+"OPTIONS /flowbill/get_vendor_creditnote/?note_type=history HTTP/1.1" 200 0
+"GET /flowbill/get_vendor_creditnote/?note_type=history HTTP/1.1" 200 1029
+"OPTIONS /flowbill/get_vendor_creditnote/?note_type=credit HTTP/1.1" 200 0
+"GET /flowbill/get_vendor_creditnote/?note_type=credit HTTP/1.1" 200 257
+Watching for file changes with StatReloader
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"GET /flowbill/UOMdropdown/ HTTP/1.1" 200 142
+"OPTIONS /api/admin/login/ HTTP/1.1" 200 0
+"POST /api/admin/login/ HTTP/1.1" 200 761
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+/home/dell/projects/mysenz/MySenzBackend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+"OPTIONS /api/admin/categories/ HTTP/1.1" 200 0
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"GET /api/admin/categories/ HTTP/1.1" 200 468
+"OPTIONS /api/admin/store-manager/ HTTP/1.1" 200 0
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2568
+"GET /api/admin/store-manager/ HTTP/1.1" 200 2568
+"OPTIONS /api/admin/store-partner/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2 HTTP/1.1" 200 0
+"GET /api/admin/store-partner/?store_id=0098b014-cd26-4d08-887e-8bbcc979dfb2 HTTP/1.1" 200 907
+/home/dell/projects/mysenz/MySenzApp/models.py changed, reloading.
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
